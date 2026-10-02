@@ -8,6 +8,7 @@ import {
   type ToolExecutionStartEvent,
 } from "./call-runs.js";
 import { readAiSdkVersion } from "./host-sdk-version.js";
+import { createKrinoTelemetryIntegration, telemetryWithKrino } from "./telemetry.js";
 import { wrapToolsForRiskGate } from "./wrap-tools.js";
 
 /** Options for `generateText`, typed for the caller's tool set. */
@@ -129,20 +130,46 @@ export function withKrino(
       ? {}
       : { tools: wrapToolsForRiskGate(toolsByName, registry.checkToolCall) };
 
+  // An abort ends every call that shares this signal. The listener is attached only while a
+  // call is active, so a long-lived signal does not collect listeners.
+  const abortSignal = callOptions.abortSignal;
+  let isListeningForAbort = false;
+  const handleAbort = (): void => {
+    isListeningForAbort = false;
+    registry.finishAllCalls();
+  };
+  const listenForAbort = (): void => {
+    if (abortSignal !== undefined && !isListeningForAbort) {
+      abortSignal.addEventListener("abort", handleAbort, { once: true });
+      isListeningForAbort = true;
+    }
+  };
+  const finishCall = (callId: string): void => {
+    registry.finishCall(callId);
+    if (abortSignal !== undefined && isListeningForAbort && !registry.hasActiveCalls()) {
+      abortSignal.removeEventListener("abort", handleAbort);
+      isListeningForAbort = false;
+    }
+  };
+
   return {
     ...callOptions,
     ...toolOverrides,
     prepareStep,
-    onStart: composeCallback(
-      registry.startCall,
-      callOptions.onStart ?? callOptions.experimental_onStart,
+    telemetry: telemetryWithKrino(
+      callOptions.telemetry ?? callOptions.experimental_telemetry,
+      createKrinoTelemetryIntegration(finishCall),
     ),
+    onStart: composeCallback((startEvent: CallStartEvent) => {
+      registry.startCall(startEvent);
+      listenForAbort();
+    }, callOptions.onStart ?? callOptions.experimental_onStart),
     onStepEnd: composeCallback(
       registry.recordStep,
       callOptions.onStepEnd ?? callOptions.onStepFinish,
     ),
     onEnd: composeCallback(
-      (endEvent) => registry.finishCall(endEvent.callId),
+      (endEvent) => finishCall(endEvent.callId),
       callOptions.onEnd ?? callOptions.onFinish,
     ),
     onToolExecutionStart: composeCallback(

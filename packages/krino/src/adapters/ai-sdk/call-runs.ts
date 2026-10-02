@@ -89,6 +89,7 @@ export type CallRunRegistry = {
   recordStep: (stepEndEvent: CallStepEndEvent) => void;
   finishCall: (callId: string) => void;
   finishAllCalls: () => void;
+  hasActiveCalls: () => boolean;
 };
 
 export type CallRunRegistryOptions = {
@@ -424,5 +425,6 @@ export function createCallRunRegistry(registryOptions: CallRunRegistryOptions): 
     recordStep,
     finishCall,
     finishAllCalls,
+    hasActiveCalls: () => activeRunCount() > 0,
   };
 }
