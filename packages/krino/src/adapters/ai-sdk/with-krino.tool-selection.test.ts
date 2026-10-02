@@ -133,6 +133,37 @@ describe("withKrino tool selection", () => {
     expect(testKrino.runSummaries()[0]?.toolSelectionAgreement).toBe(true);
   });
 
+  it("cache trap guard: a 5-step enforce run sends the identical tool list on steps 1-4", async () => {
+    const testKrino = createTestKrino({
+      decisionModes: { toolSelection: "enforce", riskGate: "shadow" },
+      answerQuestion: selectToolsAnswer(["getOrder", "cancelOrder"]),
+    });
+    const spy = spyOnToolSelection(testKrino.krinoRuntime);
+    const model = createScriptedModel(FIVE_STEP_SCRIPT);
+
+    const result = await generateText(
+      withKrino(
+        { model, tools: createLocalToolSet(), prompt: PROMPT, stopWhen: stepCountIs(5) },
+        spy.krinoRuntime,
+      ),
+    );
+
+    expect(result.steps).toHaveLength(5);
+    const modelCalls = model.doGenerateCalls;
+    expect(modelCalls).toHaveLength(5);
+    const [stepZeroCall, ...laterCalls] = modelCalls;
+    for (const laterCall of laterCalls) {
+      // Full tool definitions, not just names: any byte change here breaks the prompt cache.
+      expect(laterCall.tools).toEqual(laterCalls[0]?.tools);
+      expect(laterCall.tools).toEqual(stepZeroCall?.tools);
+    }
+    expect(sentToolNamesByCall(laterCalls)).toEqual(
+      Array.from({ length: 4 }, () => ["getOrder", "cancelOrder"]),
+    );
+    expect(spy.toolSelectionContexts).toHaveLength(1);
+    expect(spy.toolSelectionContexts[0]?.stepNumber).toBe(0);
+  });
+
   it("streamText: enforce sends the selected tools on every step", async () => {
     const testKrino = createTestKrino({
       decisionModes: { toolSelection: "enforce", riskGate: "shadow" },
