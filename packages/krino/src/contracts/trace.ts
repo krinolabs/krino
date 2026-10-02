@@ -25,6 +25,7 @@ export type DecisionRecord = {
   probability: number | null;
   decisionModelVersion: string | null;
   latencyInMilliseconds: number | null;
+  /** Estimated in v0.1. */
   decisionCostInUsd: number | null;
 };
 
