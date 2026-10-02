@@ -1,8 +1,9 @@
+import { readFile } from "node:fs/promises";
 import { DOUBLE, type DuckDBConnection, DuckDBInstance, VARCHAR } from "@duckdb/node-api";
 import {
   CACHE_USAGE_SQL,
   CLASSIFY_LINES_SQL,
-  createTraceLinesSql,
+  CREATE_TRACE_LINES_SQL,
   DECISION_LATENCY_SQL,
   DECISION_STATUS_COUNTS_SQL,
   DERIVED_TABLES_SQL,
@@ -13,7 +14,13 @@ import {
   RECORD_COUNTS_SQL,
   REMOVED_TOOL_TOKENS_SQL,
   SUGGESTION_RUN_COUNTS_SQL,
+  TRACE_LINES_TABLE,
 } from "./trace-queries.js";
+
+/** Reads one trace file as UTF-8 text. Injectable for tests. */
+export type ReadTraceFile = (filePath: string) => Promise<string>;
+
+export const readTraceFileFromDisk: ReadTraceFile = (filePath) => readFile(filePath, "utf8");
 
 export type TraceReadFilters = {
   /** `null` reads every project. */
@@ -172,12 +179,42 @@ function agreementRows(resultRows: ReadonlyArray<ResultRow>): Array<AgreementRow
   }));
 }
 
+/** Non-blank lines of one file. A trailing `\r` (CRLF files) is JSON whitespace and stays. */
+export function nonBlankLines(fileText: string): Array<string> {
+  return fileText.split("\n").filter((line) => line.trim() !== "");
+}
+
+/**
+ * Appends the lines of each file, one file at a time, so at most one file's text is held in
+ * JavaScript. DuckDB gets the lines, never the path (see `trace-queries.ts`).
+ */
+async function loadTraceFiles(
+  connection: DuckDBConnection,
+  traceFilePaths: ReadonlyArray<string>,
+  readTraceFile: ReadTraceFile,
+): Promise<void> {
+  await connection.run(CREATE_TRACE_LINES_SQL);
+  const appender = await connection.createAppender(TRACE_LINES_TABLE);
+  try {
+    for (const traceFilePath of traceFilePaths) {
+      for (const line of nonBlankLines(await readTraceFile(traceFilePath))) {
+        appender.appendVarchar(line);
+        appender.endRow();
+      }
+      appender.flushSync();
+    }
+  } finally {
+    appender.closeSync();
+  }
+}
+
 async function aggregateWithConnection(
   connection: DuckDBConnection,
   traceFilePaths: ReadonlyArray<string>,
   traceReadFilters: TraceReadFilters,
+  readTraceFile: ReadTraceFile,
 ): Promise<TraceAggregates> {
-  await connection.run(createTraceLinesSql(traceFilePaths));
+  await loadTraceFiles(connection, traceFilePaths, readTraceFile);
   await connection.run(CLASSIFY_LINES_SQL);
   const [lineCountRow] = await selectRows(connection, LINE_COUNTS_SQL);
   await connection.run(
@@ -273,12 +310,13 @@ async function aggregateWithConnection(
 }
 
 /**
- * Reads the trace files with an in-memory DuckDB and aggregates them. Bad lines are counted,
- * never thrown. Throws only when DuckDB itself fails (for example, a file cannot be read).
+ * Reads the listed trace files into an in-memory DuckDB and aggregates them. Bad lines are
+ * counted, never thrown. Throws when a file cannot be read or DuckDB itself fails.
  */
 export async function readTraceAggregates(
   traceFilePaths: ReadonlyArray<string>,
   traceReadFilters: TraceReadFilters,
+  readTraceFile: ReadTraceFile = readTraceFileFromDisk,
 ): Promise<TraceAggregates> {
   if (traceFilePaths.length === 0) {
     return { ...EMPTY_TRACE_AGGREGATES };
@@ -287,7 +325,12 @@ export async function readTraceAggregates(
   try {
     const connection = await duckDbInstance.connect();
     try {
-      return await aggregateWithConnection(connection, traceFilePaths, traceReadFilters);
+      return await aggregateWithConnection(
+        connection,
+        traceFilePaths,
+        traceReadFilters,
+        readTraceFile,
+      );
     } finally {
       connection.closeSync();
     }

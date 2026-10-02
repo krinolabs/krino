@@ -1,26 +1,15 @@
 // DuckDB SQL for the trace reader. Every line is parsed once by DuckDB's JSON reader; only small
 // aggregate rows come back to JavaScript.
+//
+// DuckDB never gets a file path: its file readers treat every path as a glob, so a folder named
+// `traces [old]` would silently match nothing. Node reads the listed files and appends their
+// lines to `trace_lines`.
 
-/** A SQL string literal. DuckDB has no backslash escapes, so doubling quotes is enough. */
-export function sqlStringLiteral(text: string): string {
-  return `'${text.replaceAll("'", "''")}'`;
-}
+/** One row per non-blank line of every trace file. Filled with DuckDB's appender. */
+export const TRACE_LINES_TABLE = "trace_lines";
 
-/**
- * Lines of every trace file, as a view: only `classified_lines` is stored, which keeps the
- * 100 MB case fast. Blank lines (the trailing newline) are not lines.
- */
-export function createTraceLinesSql(traceFilePaths: ReadonlyArray<string>): string {
-  const fileList = traceFilePaths.map(sqlStringLiteral).join(", ");
-  return `
-CREATE TEMP VIEW trace_lines AS
-SELECT line_text
-FROM (
-  SELECT unnest(string_split(content, chr(10))) AS line_text
-  FROM read_text([${fileList}])
-)
-WHERE trim(line_text) <> ''`;
-}
+export const CREATE_TRACE_LINES_SQL = `
+CREATE TABLE ${TRACE_LINES_TABLE} (line_text VARCHAR)`;
 
 // The order of `FIELD_TYPE_PATHS` fixes the indexes used in `CLASSIFY_LINES_SQL` (1-based).
 const FIELD_TYPE_PATHS = [
@@ -129,7 +118,7 @@ SELECT
 FROM parsed_lines;
 
 DROP VIEW parsed_lines;
-DROP VIEW trace_lines;`;
+DROP TABLE trace_lines;`;
 
 export const LINE_COUNTS_SQL = `
 SELECT

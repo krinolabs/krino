@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import nodePath from "node:path";
 import { fileURLToPath } from "node:url";
@@ -214,6 +214,45 @@ describe("krino report on the fixture trace folders (both hosts, cut-offs, bad l
     expect(report.lines.readLineCount).toBe(0);
     expect(report.decisions).toEqual([]);
     expect(report.nextStep).toMatch(/^No traces found in /);
+  });
+});
+
+describe("trace folders whose path has glob characters", () => {
+  const FIXTURE_PROJECT_FOLDER = nodePath.join(FIXTURE_HOME, ".krino", "traces", "fixture-project");
+
+  /** A copy of the fixture home under `<temp>/krino home [old] copy/`. */
+  function bracketedHome(): string {
+    const parentFolder = mkdtempSync(nodePath.join(tmpdir(), "krino-report-glob-"));
+    temporaryFolders.push(parentFolder);
+    const homeFolder = nodePath.join(parentFolder, "krino home [old] copy");
+    const projectFolder = nodePath.join(homeFolder, ".krino", "traces", "fixture-project");
+    mkdirSync(projectFolder, { recursive: true });
+    cpSync(FIXTURE_PROJECT_FOLDER, projectFolder, { recursive: true });
+    return homeFolder;
+  }
+
+  it("reads every listed file even when the folder path has '[', ']' and a space", async () => {
+    const homeFolder = bracketedHome();
+    const expected = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
+    const fromBracketedHome = await reportFor(
+      { projectName: "fixture-project", sinceText: "7d" },
+      { homeDirectory: () => homeFolder },
+    );
+    expect(fromBracketedHome.filters.traceDirectory).toContain("krino home [old] copy");
+    expect(fromBracketedHome.filters.traceFileCount).toBe(2);
+    expect(fromBracketedHome.lines).toEqual(expected.lines);
+    expect(fromBracketedHome.records).toEqual(expected.records);
+    expect(fromBracketedHome.decisions).toEqual(expected.decisions);
+  });
+
+  it("reads a bracketed folder through every project folder under the traces root", async () => {
+    const homeFolder = bracketedHome();
+    const report = await reportFor(
+      { projectName: null, sinceText: "7d" },
+      { homeDirectory: () => homeFolder },
+    );
+    expect(report.lines.readLineCount).toBe(26);
+    expect(report.records.agentStepCount).toBe(14);
   });
 });
 

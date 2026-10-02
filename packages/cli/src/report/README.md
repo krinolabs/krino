@@ -21,7 +21,8 @@ The same folder the file sink writes to:
 
 Without `--project`, 2 and 3 read every project folder under `…/krino/traces`.
 Only `traces-YYYY-MM-DD[.N].jsonl` files are read, and files from days before `--since` are
-skipped.
+skipped. Node lists and reads the files; DuckDB gets their lines, never a path, because
+DuckDB treats every path as a glob (a folder named `traces [old]` would match nothing).
 
 ## Bad lines
 
