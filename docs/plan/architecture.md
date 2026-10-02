@@ -61,7 +61,7 @@ flowchart LR
 | Decision providers | Answer typed questions | `src/providers/` | contracts; Jev provider uses `ai` |
 | Trace sink (file) | Append JSONL; daily files; rotation; redaction | `src/sinks/`, `src/redaction/` | contracts, Node `fs` |
 | AI SDK adapter | `prepareStep` (step 0), wraps tool `execute`, reads usage | `src/adapters/ai-sdk/` | runtime, `ai` (peer) |
-| Claude Agent SDK adapter | `allowedTools` at start, `PreToolUse` hook, reads `result` | `src/adapters/claude-agent-sdk/` | runtime, Agent SDK (peer) |
+| Tool selection | Claude Agent SDK: `disallowedTools` at query start (run start only). `allowedTools` is never changed: it controls approval, not availability. |
 | CLI | `report`, `bench`, `init`, `doctor` | `packages/cli/` | trace format, DuckDB |
 | Bench catalog | 100 mock tools, 60 tasks, fake executors | `bench/` | host SDKs (dev only) |
 
