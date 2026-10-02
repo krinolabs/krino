@@ -14,6 +14,11 @@
     - `step-zero`: krino enforce mode.
   - Uses the AI SDK host, the mock catalog, a Haiku-class model by default, and the real Jev provider (fake provider with `--fake`).
   - `--pilot` = 10 runs per setup.
+  - **Scoring:** selection recall is the primary metric (all expected tools inside the
+    suggested set). Also report set size and, for multiStep tasks only, sequence match.
+    See bench/README.md.
+  - **Record the setup:** whether the MCP server loaded all tools, and the description
+    token count, in every bench output.
   - **Spend guard:** estimates cost before starting; stops when spend reaches `--max-spend-usd`.
   - Writes traces under a bench project name, then prints the comparison via the report engine: cost per step, cache read share, tool accuracy vs `expectedToolNames`, latency.
   - Records model versions, SDK versions, and run date in the output.
@@ -21,6 +26,9 @@
   - [ ] `krino bench --fake --pilot` runs offline in CI (uses the AI SDK mock model).
   - [ ] Spend guard test: stops at the limit with a clear message.
   - [ ] Output includes everything needed for the blog chart.
+- **Approved edit:** register your command with one line in
+  `packages/cli/src/main-command.ts`.
+- Use `--trace-dir` and `resolveTraceDirectory` from `@krinolabs/krino`; do not copy folder rules.
 
 ---
 

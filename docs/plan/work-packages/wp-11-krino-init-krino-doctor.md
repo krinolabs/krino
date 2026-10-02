@@ -19,6 +19,9 @@
 - **Acceptance:**
   - [ ] Tests with temp directories for each check.
   - [ ] `doctor` exits 0 on pass/warn and 1 on any fail.
+- **Approved edit:** register your command with one line in
+  `packages/cli/src/main-command.ts`.
+- Use `--trace-dir` and `resolveTraceDirectory` from `@krinolabs/krino`; do not copy folder rules.
 
 ---
 
