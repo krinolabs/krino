@@ -1,2 +1,5 @@
 #!/usr/bin/env node
-export {};
+import { runMain } from "citty";
+import { mainCommand, showUsageWithBanner } from "./main-command.js";
+
+await runMain(mainCommand, { showUsage: showUsageWithBanner });
