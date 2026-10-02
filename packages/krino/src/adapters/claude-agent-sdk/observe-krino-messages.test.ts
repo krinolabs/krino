@@ -353,6 +353,88 @@ describe("observeKrinoMessages", () => {
   });
 });
 
+describe("waitForTracesOnEnd", () => {
+  const SLOW_PROVIDER_LATENCY = 5_000;
+  const FLUSH_TIMEOUT = 2_000;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Starts consuming the stream and reports when the user's loop has ended. */
+  function consume(messageStream: AsyncIterable<SDKMessage>) {
+    const loopState = { ended: false };
+    const loopPromise = collect(messageStream).then(() => {
+      loopState.ended = true;
+    });
+    return { loopState, loopPromise };
+  }
+
+  async function slowShadowRun() {
+    const started = await startRun({
+      decisionProvider: createLocalTestProvider(
+        answerToolsNeeded([CANCEL_ORDER], 1),
+        SLOW_PROVIDER_LATENCY,
+      ),
+      configFields: { decisionTimeoutInMilliseconds: 10_000 },
+    });
+    const { stream } = fakeAgentStream(started.krinoRun, { toolNames: [CANCEL_ORDER] });
+    return { ...started, stream };
+  }
+
+  it("default (true): with decisions still pending, the loop ends once they settle or are cut off", async () => {
+    const { krinoRun, traceSink, stream } = await slowShadowRun();
+    const { loopState, loopPromise } = consume(observeKrinoMessages(stream, krinoRun));
+
+    await vi.advanceTimersByTimeAsync(FLUSH_TIMEOUT - 1);
+    expect(loopState.ended).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await loopPromise;
+
+    expect(loopState.ended).toBe(true);
+    expect(traceSink.runSummaries()).toHaveLength(1);
+    expect(
+      traceSink
+        .stepTraces()
+        .flatMap((stepTrace) => stepTrace.decisions.map((decision) => decision.decisionStatus)),
+    ).toEqual(expect.arrayContaining(["cutOff", "cutOff"]));
+  });
+
+  it("default (true): with nothing pending, the loop ends without waiting", async () => {
+    const { krinoRuntime, traceSink } = createTestKrino();
+    const krinoRun = await krinoAgentOptions({ model: HAIKU }, krinoRuntime, TASK_TEXT);
+    const { stream } = fakeAgentStream(krinoRun, {});
+    const startedAt = Date.now();
+    const { loopState, loopPromise } = consume(observeKrinoMessages(stream, krinoRun));
+
+    await vi.advanceTimersByTimeAsync(0);
+    await loopPromise;
+    expect(loopState.ended).toBe(true);
+    expect(Date.now() - startedAt).toBe(0); // no clock time passed
+    expect(traceSink.runSummaries()).toHaveLength(1);
+  });
+
+  it("false: the loop ends at once; the traces are written in the background", async () => {
+    const { krinoRun, traceSink, stream } = await slowShadowRun();
+    const { loopState, loopPromise } = consume(
+      observeKrinoMessages(stream, krinoRun, { waitForTracesOnEnd: false }),
+    );
+
+    await vi.advanceTimersByTimeAsync(0);
+    await loopPromise;
+    expect(loopState.ended).toBe(true);
+    expect(traceSink.runSummaries()).toHaveLength(0);
+
+    await vi.advanceTimersByTimeAsync(FLUSH_TIMEOUT);
+    expect(traceSink.runSummaries()).toHaveLength(1);
+    expect(traceSink.stepTraces()).toHaveLength(2);
+  });
+});
+
 describe("no network", () => {
   it("a full shadow and enforce run never calls fetch", async () => {
     const fetchSpy = vi.fn(() => Promise.reject(new Error("network is not allowed in tests")));

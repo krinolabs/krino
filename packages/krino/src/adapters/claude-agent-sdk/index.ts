@@ -6,4 +6,7 @@ export {
   type KrinoAgentRun,
   krinoAgentOptions,
 } from "./krino-agent-options.js";
-export { observeKrinoMessages } from "./observe-krino-messages.js";
+export {
+  type ObserveKrinoMessagesOptions,
+  observeKrinoMessages,
+} from "./observe-krino-messages.js";

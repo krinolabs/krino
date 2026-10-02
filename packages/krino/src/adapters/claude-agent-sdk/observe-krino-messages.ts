@@ -16,6 +16,16 @@ const FOREIGN_RUN_WARNING =
   "krino: observeKrinoMessages() got a run that krinoAgentOptions() did not return; " +
   "nothing is recorded. Pass the object krinoAgentOptions() resolved to.";
 
+export type ObserveKrinoMessagesOptions = {
+  /**
+   * Default `true`: when the stream ends, wait until the run's traces are written. The runtime
+   * waits only while decisions are still pending, at most the flush timeout (2 s by default), so
+   * a short script can exit right after its loop without losing traces. `false`: end the loop at
+   * once and write the traces in the background; a process that exits right away may lose them.
+   */
+  waitForTracesOnEnd?: boolean;
+};
+
 /** The fields krino reads from a `result` message. */
 type RunResult = {
   modelUsage: unknown;
@@ -110,12 +120,22 @@ function finishAgentRunOnce(
 
 /**
  * Passes every message of a `query()` stream through unchanged. When the stream ends (finished,
- * thrown, or left early with `break`), it records the run: usage and cost from the last `result`
- * message (cumulative), then `finishRun`. The host's own stream errors are rethrown; krino's never.
+ * thrown, or left early with `break`), it records the run: step 0, one step per tool call, usage
+ * and cost from the last `result` message (cumulative), then `finishRun`. The host's own stream
+ * errors are rethrown; krino's never are.
+ *
+ * Waiting at the end (`waitForTracesOnEnd`, default `true`): the loop ends once pending decisions
+ * settle or are cut off, at most the flush timeout (2 s by default), and right away when nothing
+ * is pending. The trade-off: up to 2 s at the end of a run in exchange for traces that survive an
+ * immediate process exit. Pass `false` to end the loop at once and write in the background.
+ *
+ * Trace lines are not in order; sort by runIdentifier, then stepNumber. (The runtime writes a step
+ * once its decisions settle, so step 0, waiting on a background suggestion, can follow step 1.)
  */
 export async function* observeKrinoMessages<Message extends SDKMessage>(
   messageStream: AsyncIterable<Message>,
   krinoRun: KrinoAgentRun,
+  observeOptions: ObserveKrinoMessagesOptions = {},
 ): AsyncGenerator<Message, void, undefined> {
   const runState = findAgentRunState(krinoRun);
   if (runState === undefined) {
@@ -131,6 +151,10 @@ export async function* observeKrinoMessages<Message extends SDKMessage>(
       yield message;
     }
   } finally {
-    await finishAgentRunOnce(krinoRun, runState, lastResult);
+    // Never rejects: failures are logged inside.
+    const finishPromise = finishAgentRunOnce(krinoRun, runState, lastResult);
+    if (observeOptions.waitForTracesOnEnd ?? true) {
+      await finishPromise;
+    }
   }
 }
