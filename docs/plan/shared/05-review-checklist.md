@@ -1,6 +1,6 @@
 # ✅ Review checklist (for the lead)
 
-- [ ] The PR touches only the WP's owned paths.
+- [ ] The PR touches only the WP's owned paths (plus `.changeset/`, which every WP may write).
 - [ ] Every acceptance box is checked, with evidence (test names, output).
 - [ ] No new `any`, no `Item[]` syntax, no one-letter type names.
 - [ ] No network in tests; no secrets in fixtures.

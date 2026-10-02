@@ -1,0 +1,17 @@
+{
+  "source": "schema",
+  "status": 200,
+  "body": {
+    "answers": {
+      "question_0": { "type": "boolean", "probability": 0.97 },
+      "question_1": { "type": "boolean", "probability": 0.04 },
+      "question_2": { "type": "boolean", "probability": 0.91 }
+    },
+    "model": "typesafe-ai/jev-fixture-version",
+    "usage": { "inputTokens": 412, "outputTokens": 3 },
+    "warnings": [],
+    "providerMetadata": {
+      "gateway": { "cost": "0.0000173", "marketCost": "0.0000173" }
+    }
+  }
+}

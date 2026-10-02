@@ -1,0 +1,11 @@
+{
+  "source": "schema",
+  "status": 200,
+  "body": {
+    "answers": {
+      "question_0": { "type": "choice", "choice": "readFile" }
+    },
+    "model": "typesafe-ai/jev-fixture-version",
+    "warnings": []
+  }
+}

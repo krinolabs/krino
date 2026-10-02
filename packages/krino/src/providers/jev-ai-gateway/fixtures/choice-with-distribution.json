@@ -1,0 +1,16 @@
+{
+  "source": "schema",
+  "status": 200,
+  "body": {
+    "answers": {
+      "question_0": {
+        "type": "choice",
+        "choice": "readFile",
+        "probabilities": { "search": 0.12, "readFile": 0.83, "sendEmail": 0.05 }
+      }
+    },
+    "rounding": { "probabilityDecimals": 2 },
+    "usage": { "inputTokens": 230, "outputTokens": 1 },
+    "warnings": []
+  }
+}
