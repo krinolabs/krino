@@ -178,6 +178,34 @@ describe("withKrino run end", () => {
     expect(runSummaries).toHaveLength(1);
   });
 
+  it("thrown error on the first streamText model call: telemetry onError writes the summary", async () => {
+    // ai 7.0.126: a failure on the first streamText call reaches only telemetry onError (no
+    // onEnd); a failure on a later step ends with onEnd. Both write one run summary.
+    const testKrino = createTestKrino();
+    const failingModel = new MockLanguageModelV4({
+      doStream: async () => {
+        throw new Error("first call failed");
+      },
+    });
+
+    await streamText(
+      withKrino(
+        {
+          model: failingModel,
+          tools: createLocalToolSet(),
+          prompt: PROMPT,
+          maxRetries: 0,
+          onError: () => {},
+        },
+        testKrino.krinoRuntime,
+      ),
+    ).consumeStream({ onError: () => {} });
+
+    const runSummaries = await testKrino.waitForRunSummaries(1);
+    expect(runSummaries).toHaveLength(1);
+    expect(runSummaries[0]?.stepCount).toBe(0);
+  });
+
   it("caller prepareStep throws: a run summary is written", async () => {
     const testKrino = createTestKrino();
 
