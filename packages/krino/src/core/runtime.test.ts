@@ -11,6 +11,7 @@ import type {
   TraceSink,
 } from "../contracts/index.js";
 import { KrinoConfigurationError } from "../contracts/index.js";
+import { buildRiskQuestion } from "../risk-gate/index.js";
 import { countSentCharacters } from "./context-budget.js";
 import { createKrino, createKrinoRuntime, type RuntimeDependencies } from "./create-krino.js";
 import {
@@ -24,7 +25,6 @@ import {
   stepTraceInput,
   TEST_DECISION_MODEL_VERSION,
 } from "./local-test-doubles.js";
-import { buildRiskQuestion } from "./risk-gate-policy.js";
 import { buildToolSelectionQuestions } from "./tool-selection.js";
 
 const FIVE_SECONDS = 5_000;
@@ -706,6 +706,31 @@ describe("risk gate (fails closed, always shadow in v0.1)", () => {
     expect(decisionProvider.recordedCalls).toHaveLength(0);
     expect(outcome.suggestedVerdict).toBe("allow");
   });
+
+  it.each(["constructor", "toString", "__proto__"])(
+    "a tool named %s reads only its own threshold, never an inherited one",
+    async (toolName) => {
+      const decisionProvider = createLocalTestProvider(answerEveryQuestion("yes", 1));
+      const { krinoRuntime } = createTestRuntime({ decisionProvider });
+      const runHandle = krinoRuntime.startRun(aiSdkRunStart());
+      const withoutThreshold = await runHandle.checkToolCallRisk(toolCall(toolName));
+      expect(decisionProvider.recordedCalls).toHaveLength(0);
+      expect(withoutThreshold.decisionRecord.decisionStatus).toBe("skippedUnsupported");
+
+      const { krinoRuntime: runtimeWithThreshold } = createTestRuntime({
+        decisionProvider,
+        configFields: {
+          riskGatePolicy: {
+            blockedToolNames: [],
+            alwaysAllowedToolNames: [],
+            allowThresholdByToolName: JSON.parse(`{${JSON.stringify(toolName)}: 0.5}`),
+          },
+        },
+      });
+      await runtimeWithThreshold.startRun(aiSdkRunStart()).checkToolCallRisk(toolCall(toolName));
+      expect(decisionProvider.recordedCalls).toHaveLength(1);
+    },
+  );
 
   it("asks with the task and tool only: never messages or tool results", async () => {
     const decisionProvider = createLocalTestProvider(answerEveryQuestion("yes", 1));

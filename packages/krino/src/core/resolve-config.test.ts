@@ -76,6 +76,38 @@ describe("resolveKrinoConfig", () => {
     expect(resolvedConfig.priceOverrides).toHaveLength(1);
   });
 
+  it.each(["constructor", "toString", "__proto__"])(
+    "keeps a threshold for a tool named %s as its own value",
+    (toolName) => {
+      // JSON config is how a key like `__proto__` arrives as an own property.
+      const allowThresholdByToolName = JSON.parse(`{${JSON.stringify(toolName)}: 0.7}`);
+      const resolvedPolicy = resolveKrinoConfig({
+        ...minimalConfig,
+        riskGatePolicy: {
+          blockedToolNames: [],
+          alwaysAllowedToolNames: [],
+          allowThresholdByToolName,
+        },
+      }).riskGatePolicy;
+      const resolvedThresholds = resolvedPolicy?.allowThresholdByToolName ?? {};
+      expect(Object.hasOwn(resolvedThresholds, toolName)).toBe(true);
+      expect(Object.getOwnPropertyDescriptor(resolvedThresholds, toolName)?.value).toBe(0.7);
+      expect(Object.getPrototypeOf(resolvedThresholds)).toBe(Object.prototype);
+
+      expectConfigError(
+        {
+          ...minimalConfig,
+          riskGatePolicy: {
+            blockedToolNames: [],
+            alwaysAllowedToolNames: [],
+            allowThresholdByToolName: JSON.parse(`{${JSON.stringify(toolName)}: 2}`),
+          },
+        },
+        `riskGatePolicy.allowThresholdByToolName.${toolName}`,
+      );
+    },
+  );
+
   it("treats an undefined mode as the default", () => {
     expect(
       resolveKrinoConfig({

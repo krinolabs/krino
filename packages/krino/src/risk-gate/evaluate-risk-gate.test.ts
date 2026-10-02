@@ -356,6 +356,43 @@ describe("evaluateRiskGate: properties", () => {
   });
 });
 
+describe.each(["constructor", "toString", "__proto__"])(
+  "a tool named like an inherited object property: %s",
+  (toolName) => {
+    it("has no threshold unless the policy sets one", () => {
+      expect(findAllowThreshold(toolName, riskGatePolicy)).toBeNull();
+      expect(riskGateNeedsProviderAnswer(toolCall(toolName), riskGatePolicy)).toBe(false);
+      expect(
+        evaluateRiskGate({
+          pendingToolCall: toolCall(toolName),
+          riskGatePolicy,
+          providerAnswer: answer("yes", 1),
+          providerFailure: null,
+        }),
+      ).toEqual({ verdict: "askHuman", decisionStatus: "skippedUnsupported" });
+    });
+
+    it("uses its own threshold when the policy sets one (as JSON config would)", () => {
+      const parsedPolicy: RiskGatePolicy = {
+        blockedToolNames: [],
+        alwaysAllowedToolNames: [],
+        allowThresholdByToolName: JSON.parse(`{${JSON.stringify(toolName)}: 0.7}`),
+      };
+      expect(findAllowThreshold(toolName, parsedPolicy)).toBe(0.7);
+      expect(riskGateNeedsProviderAnswer(toolCall(toolName), parsedPolicy)).toBe(true);
+      const evaluationWith = (probability: number) =>
+        evaluateRiskGate({
+          pendingToolCall: toolCall(toolName),
+          riskGatePolicy: parsedPolicy,
+          providerAnswer: answer("yes", probability),
+          providerFailure: null,
+        });
+      expect(evaluationWith(0.7)).toEqual({ verdict: "allow", decisionStatus: "answered" });
+      expect(evaluationWith(0.69)).toEqual({ verdict: "askHuman", decisionStatus: "answered" });
+    });
+  },
+);
+
 describe("riskGateNeedsProviderAnswer", () => {
   it("is true only for a tool with a threshold that is on neither list", () => {
     expect(riskGateNeedsProviderAnswer(toolCall("sendEmail"), riskGatePolicy)).toBe(true);

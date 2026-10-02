@@ -20,6 +20,12 @@ import type {
 } from "../contracts/index.js";
 import { TRACE_SCHEMA_VERSION } from "../contracts/index.js";
 import { findModelPrice } from "../pricing/index.js";
+import {
+  buildRiskQuestion,
+  evaluateRiskGate,
+  type RiskGateEvaluation,
+  riskGateNeedsProviderAnswer,
+} from "../risk-gate/index.js";
 import { askProviderWithTimeout, type ProviderCallResult } from "./ask-provider.js";
 import {
   type ContextBudget,
@@ -30,12 +36,6 @@ import { costFromUsage, estimateDecisionCostInUsd } from "./cost.js";
 import { flushTraceSinkSafely } from "./flush-trace-sink.js";
 import { createPendingDecisionTracker } from "./pending-decisions.js";
 import type { ResolvedKrinoConfig } from "./resolve-config.js";
-import {
-  buildRiskQuestion,
-  evaluateRiskGate,
-  type RiskGateEvaluation,
-  riskGateNeedsProviderAnswer,
-} from "./risk-gate-policy.js";
 import {
   buildToolSelectionQuestions,
   encodeToolNameChoice,

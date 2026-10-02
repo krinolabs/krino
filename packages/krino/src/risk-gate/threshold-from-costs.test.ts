@@ -5,6 +5,8 @@ import { thresholdFromCosts } from "./threshold-from-costs.js";
 describe("thresholdFromCosts", () => {
   it.each([
     { costOfAskingInUsd: 1, costOfBadCallInUsd: 100, expected: 0.99 },
+    // The doc comment example.
+    { costOfAskingInUsd: 0.5, costOfBadCallInUsd: 50, expected: 0.99 },
     { costOfAskingInUsd: 5, costOfBadCallInUsd: 20, expected: 0.75 },
     { costOfAskingInUsd: 10, costOfBadCallInUsd: 10, expected: 0 },
     // Asking costs more than a bad call: clamped to 0.

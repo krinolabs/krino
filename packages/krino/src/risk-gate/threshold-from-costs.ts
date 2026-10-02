@@ -12,6 +12,16 @@ export type RiskCosts = {
  * Free asking gives 1 (always ask unless certain), even when a bad call is free too.
  * Throws a `RangeError` on a negative or `NaN` cost, or an infinite cost of asking: it runs
  * while building a config, so a silent fallback would hide the mistake.
+ *
+ * @example
+ * // Asking a person costs $0.50; a bad email costs $50 → allow only at probability ≥ 0.99.
+ * const riskGatePolicy = {
+ *   blockedToolNames: ["deleteDatabase"],
+ *   alwaysAllowedToolNames: ["readFile"],
+ *   allowThresholdByToolName: {
+ *     sendEmail: thresholdFromCosts({ costOfAskingInUsd: 0.5, costOfBadCallInUsd: 50 }), // 0.99
+ *   },
+ * };
  */
 export function thresholdFromCosts(riskCosts: RiskCosts): number {
   const { costOfAskingInUsd, costOfBadCallInUsd } = riskCosts;
