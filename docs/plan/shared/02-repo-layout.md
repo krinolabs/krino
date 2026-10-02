@@ -6,7 +6,7 @@ krino/
 ├─ CLAUDE.md                         # one line: @AGENTS.md
 ├─ docs/
 │  ├─ plan/                          # this plan folder
-│  ├─ adr/                           # decision records ADR-001…ADR-012
+│  ├─ adr/                           # decision records ADR-001…ADR-017
 │  ├─ brand/                         # banners, logos (from the brand pack)
 │  └─ cfp-abstract.md
 ├─ packages/

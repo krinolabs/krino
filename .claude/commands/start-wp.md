@@ -9,3 +9,4 @@ Meet every acceptance criterion. Run `pnpm turbo run lint typecheck test build`.
 Then summarize what you built, how you tested it, the SDK versions you verified,
 open questions, and any deviation, and open a PR from branch $ARGUMENTS.
 If you need a contract change, stop and explain it instead.
+Save the PR description to docs/plan/pr-bodies/$ARGUMENTS.md (not committed), then open the PR with gh pr create --body-file
