@@ -1,0 +1,11 @@
+{
+  "name": "@krinolabs/vitest-tooling",
+  "version": "0.0.0",
+  "description": "Shared Vitest setup files for krino packages. Not published.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check ."
+  }
+}

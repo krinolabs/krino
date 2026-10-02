@@ -25,6 +25,8 @@
 - No network in tests. Use the fake provider and recorded fixtures.
 - Live tests only behind `KRINO_LIVE=1`; never in CI.
 - Put tests next to the code as `*.test.ts`.
+- Every package with tests must include tooling/vitest/trace-isolation.ts in its Vitest
+  setupFiles.
 
 ## Verify, do not guess
 - SDK option names, hook names, metadata keys, and package names change often.

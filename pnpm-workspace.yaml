@@ -3,6 +3,7 @@ packages:
   - examples/*
   - bench
   - e2e
+  - tooling/*
 
 # Optional peers (ai, @anthropic-ai/claude-agent-sdk) stay out of the dev tree
 # until a package lists them as devDependencies.

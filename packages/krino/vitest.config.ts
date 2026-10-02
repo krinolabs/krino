@@ -5,6 +5,7 @@ const AREA_THRESHOLDS = { lines: 90, branches: 85 };
 export default defineConfig({
   test: {
     passWithNoTests: true,
+    setupFiles: ["../../tooling/vitest/trace-isolation.ts"],
     coverage: {
       enabled: true,
       provider: "v8",
