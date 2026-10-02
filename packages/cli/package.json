@@ -2,6 +2,7 @@
   "name": "@krinolabs/cli",
   "version": "0.0.0",
   "description": "CLI for krino: reports, benchmarks, and setup checks.",
+  "private": true,
   "keywords": [
     "ai",
     "agents",
