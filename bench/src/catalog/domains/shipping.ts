@@ -2,21 +2,21 @@ import {
   integerParameter,
   type MockToolDefinition,
   stringParameter,
-  withDomainNote,
 } from "../mock-tool-definition.js";
+import { withDomainNote } from "../tool-description.js";
 
 const ORDER_ID_DESCRIPTION = "Order identifier, for example ORD-10422.";
 const TRACKING_NUMBER_DESCRIPTION = "Carrier tracking number, for example 1Z999AA10123456784.";
 const SERVICE_LEVEL_VALUES = ["economy", "standard", "express", "overnight"];
 
 const DOMAIN_NOTE =
-  "Parameters: postal codes are strings, never numbers; weights are grams; tracking numbers are case-insensitive. Limits: carrier scans can lag by two hours; quoted rates hold for 15 minutes. Example: a 1.2 kg parcel is weightInGrams 1200.";
+  "Shipping API: weights are grams; carrier data can lag two hours. Max 40 calls per minute.";
 
 export const SHIPPING_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {
     toolName: "get_shipment_tracking",
     domainName: "shipping",
-    toolDescription:
+    coreDescription:
       "Returns the carrier scan events for a tracking number: each scan with location, time and description. Use it when you have a tracking number and need the detailed journey.",
     parameters: [stringParameter("trackingNumber", TRACKING_NUMBER_DESCRIPTION)],
     fixedResult: {
@@ -29,8 +29,8 @@ export const SHIPPING_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_N
   {
     toolName: "get_shipment_status",
     domainName: "shipping",
-    toolDescription:
-      "Returns the latest shipment status for an order (labelCreated, inTransit, outForDelivery, delivered, exception) and its tracking number. Do not use it when you need each carrier scan; use get_shipment_tracking for that.",
+    coreDescription:
+      "Returns the latest shipment status for an order (label created, in transit, out for delivery, delivered, exception) and its tracking number. Do not use it when you need each carrier scan; use get_shipment_tracking for that.",
     parameters: [stringParameter("orderId", ORDER_ID_DESCRIPTION)],
     lookAlikeOf: "get_shipment_tracking",
     fixedResult: { shipmentStatus: "inTransit", trackingNumber: "1Z999AA10123456784" },
@@ -38,12 +38,15 @@ export const SHIPPING_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_N
   {
     toolName: "get_shipping_rates",
     domainName: "shipping",
-    toolDescription:
+    coreDescription:
       "Quotes shipping prices for a parcel between two postal codes for every service level.",
     parameters: [
       stringParameter("originPostalCode", "Postal code the parcel ships from."),
       stringParameter("destinationPostalCode", "Postal code the parcel ships to."),
-      integerParameter("weightInGrams", "Parcel weight in grams."),
+      integerParameter(
+        "weightInGrams",
+        "Parcel weight in grams including packaging, for example 1200.",
+      ),
     ],
     fixedResult: {
       rates: [
@@ -55,7 +58,7 @@ export const SHIPPING_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_N
   {
     toolName: "estimate_delivery_date",
     domainName: "shipping",
-    toolDescription:
+    coreDescription:
       "Estimates the delivery date of an existing order that has already been placed, using its shipment and carrier data.",
     parameters: [stringParameter("orderId", ORDER_ID_DESCRIPTION)],
     fixedResult: { estimatedDeliveryOn: "2026-10-04", confidence: "high" },
@@ -63,11 +66,15 @@ export const SHIPPING_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_N
   {
     toolName: "estimate_delivery_window",
     domainName: "shipping",
-    toolDescription:
+    coreDescription:
       "Estimates how many days delivery would take to a postal code for a service level, for an order that does not exist yet. Do not use it for an order that was already placed; use estimate_delivery_date for that.",
     parameters: [
       stringParameter("destinationPostalCode", "Postal code the parcel would ship to."),
-      stringParameter("serviceLevel", "Shipping speed.", { allowedValues: SERVICE_LEVEL_VALUES }),
+      stringParameter(
+        "serviceLevel",
+        "Shipping speed; faster levels cost more and arrive sooner.",
+        { allowedValues: SERVICE_LEVEL_VALUES },
+      ),
     ],
     lookAlikeOf: "estimate_delivery_date",
     fixedResult: { minimumDays: 3, maximumDays: 5 },
@@ -75,38 +82,42 @@ export const SHIPPING_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_N
   {
     toolName: "create_shipping_label",
     domainName: "shipping",
-    toolDescription:
+    coreDescription:
       "Buys a shipping label for an order and returns the label identifier and tracking number.",
     parameters: [
       stringParameter("orderId", ORDER_ID_DESCRIPTION),
-      stringParameter("serviceLevel", "Shipping speed.", { allowedValues: SERVICE_LEVEL_VALUES }),
+      stringParameter(
+        "serviceLevel",
+        "Shipping speed; faster levels cost more and arrive sooner.",
+        { allowedValues: SERVICE_LEVEL_VALUES },
+      ),
     ],
     fixedResult: { labelId: "LBL-5521", trackingNumber: "1Z999AA10123456785" },
   },
   {
     toolName: "void_shipping_label",
     domainName: "shipping",
-    toolDescription: "Voids an unused shipping label so that the carrier does not charge for it.",
+    coreDescription: "Voids an unused shipping label so that the carrier does not charge for it.",
     parameters: [
       stringParameter("labelId", "Label identifier, for example LBL-5521."),
-      stringParameter("voidReason", "Why the label is voided."),
+      stringParameter("voidReason", "Why the label is voided, for example a wrong address."),
     ],
     fixedResult: { voided: true },
   },
   {
     toolName: "schedule_pickup",
     domainName: "shipping",
-    toolDescription: "Schedules a carrier pickup for a shipping label on a given date.",
+    coreDescription: "Schedules a carrier pickup for a shipping label on a given date.",
     parameters: [
       stringParameter("labelId", "Label identifier, for example LBL-5521."),
-      stringParameter("pickupDate", "Pickup day, ISO date."),
+      stringParameter("pickupDate", "Pickup day as an ISO date, for example 2026-10-03."),
     ],
     fixedResult: { pickupId: "PU-310", pickupWindow: "13:00-17:00" },
   },
   {
     toolName: "report_lost_package",
     domainName: "shipping",
-    toolDescription: "Opens a lost-package claim with the carrier for a tracking number.",
+    coreDescription: "Opens a lost-package claim with the carrier for a tracking number.",
     parameters: [
       stringParameter("trackingNumber", TRACKING_NUMBER_DESCRIPTION),
       stringParameter("lastSeenDate", "Date of the last carrier scan, ISO date.", {
@@ -118,7 +129,7 @@ export const SHIPPING_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_N
   {
     toolName: "list_carriers",
     domainName: "shipping",
-    toolDescription:
+    coreDescription:
       "Lists the carriers and service levels available for shipments within one country.",
     parameters: [stringParameter("countryCode", "Two-letter ISO country code, for example CA.")],
     fixedResult: { carriers: ["Canada Post", "Purolator", "UPS"] },

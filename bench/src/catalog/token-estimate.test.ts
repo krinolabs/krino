@@ -3,8 +3,8 @@ import { MOCK_TOOL_CATALOG } from "./mock-tool-catalog.js";
 import {
   CHARACTERS_PER_TOKEN,
   estimateCatalogSize,
-  measurePaddingShare,
-  reportPaddingShare,
+  measureDomainNoteShare,
+  reportDomainNoteShare,
   serializeToolDefinition,
 } from "./token-estimate.js";
 
@@ -36,24 +36,27 @@ describe("estimateCatalogSize", () => {
   });
 });
 
-describe("reportPaddingShare", () => {
+describe("reportDomainNoteShare", () => {
   it("measures the domain note's share of one description", () => {
     const firstTool = MOCK_TOOL_CATALOG[0];
     if (firstTool === undefined) {
       throw new Error("catalog is empty");
     }
-    const paddingShare = measurePaddingShare({
+    const noteShare = measureDomainNoteShare({
       ...firstTool,
-      toolDescription: "Core text. Padding.",
-      domainNote: "Padding.",
+      toolDescription: "Core text.\n\nShared.",
+      domainNote: "Shared.",
     });
-    expect(paddingShare).toBeCloseTo(9 / 19);
+    expect(noteShare).toBeCloseTo(7 / 19);
   });
 
   it("reports one average per domain", () => {
-    const paddingReport = reportPaddingShare();
-    expect(paddingReport.averagePaddingShareByDomain.size).toBe(10);
-    expect(paddingReport.averagePaddingShare).toBeGreaterThan(0);
-    expect(paddingReport.averagePaddingShare).toBeLessThan(1);
+    const noteShareReport = reportDomainNoteShare();
+    expect(noteShareReport.averageDomainNoteShareByDomain.size).toBe(10);
+    expect(noteShareReport.averageDomainNoteShare).toBeGreaterThan(0);
+  });
+
+  it("keeps shared domain-note text at or below 35% of an average description", () => {
+    expect(reportDomainNoteShare().averageDomainNoteShare).toBeLessThanOrEqual(0.35);
   });
 });

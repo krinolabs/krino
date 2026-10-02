@@ -3,20 +3,20 @@ import {
   type MockToolDefinition,
   numberParameter,
   stringParameter,
-  withDomainNote,
 } from "../mock-tool-definition.js";
+import { withDomainNote } from "../tool-description.js";
 
 const COUPON_CODE_DESCRIPTION = "Coupon code as the customer types it, for example SAVE20.";
 const ORDER_ID_DESCRIPTION = "Order identifier, for example ORD-10422.";
 
 const DOMAIN_NOTE =
-  "Parameters: couponCode is case-insensitive and stored in upper case; percent values are 0-100 and fixed values are cents. Limits: one coupon per order; changes reach every storefront within a minute. Example: save20 is read as SAVE20.";
+  "Coupons API: codes are case-insensitive, stored in upper case. Max 50 calls per minute.";
 
 export const COUPON_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {
     toolName: "validate_coupon",
     domainName: "coupons",
-    toolDescription:
+    coreDescription:
       "Checks whether a coupon code can be used on a cart of a given total right now and returns the discount it would give or the reason it is rejected.",
     parameters: [
       stringParameter("couponCode", COUPON_CODE_DESCRIPTION),
@@ -27,7 +27,7 @@ export const COUPON_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "get_coupon_details",
     domainName: "coupons",
-    toolDescription:
+    coreDescription:
       "Returns the configuration of a coupon: discount type and value, minimum spend, start and end dates. Do not use it to check whether a coupon works on a specific cart; use validate_coupon for that.",
     parameters: [stringParameter("couponCode", COUPON_CODE_DESCRIPTION)],
     lookAlikeOf: "validate_coupon",
@@ -41,7 +41,7 @@ export const COUPON_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "apply_coupon_to_order",
     domainName: "coupons",
-    toolDescription: "Applies a coupon to an existing unpaid order and recalculates its total.",
+    coreDescription: "Applies a coupon to an existing unpaid order and recalculates its total.",
     parameters: [
       stringParameter("orderId", ORDER_ID_DESCRIPTION),
       stringParameter("couponCode", COUPON_CODE_DESCRIPTION),
@@ -51,7 +51,7 @@ export const COUPON_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "remove_coupon_from_order",
     domainName: "coupons",
-    toolDescription: "Removes a coupon from an unpaid order and recalculates its total.",
+    coreDescription: "Removes a coupon from an unpaid order and recalculates its total.",
     parameters: [
       stringParameter("orderId", ORDER_ID_DESCRIPTION),
       stringParameter("couponCode", COUPON_CODE_DESCRIPTION),
@@ -61,28 +61,32 @@ export const COUPON_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "create_coupon",
     domainName: "coupons",
-    toolDescription:
+    coreDescription:
       "Creates a coupon code that customers type at checkout, with a percent or fixed discount and an expiry date.",
     parameters: [
       stringParameter("couponCode", "The new code, letters and digits only."),
-      stringParameter("discountType", "Kind of discount.", {
-        allowedValues: ["percent", "fixedAmount"],
-      }),
+      stringParameter(
+        "discountType",
+        "Kind of discount: a percentage of the cart or a fixed amount.",
+        {
+          allowedValues: ["percent", "fixedAmount"],
+        },
+      ),
       numberParameter("discountValue", "Percent (0-100) or fixed amount in cents."),
-      stringParameter("expiresOn", "Last valid day, ISO date."),
+      stringParameter("expiresOn", "Last day the code works, as an ISO date."),
     ],
     fixedResult: { created: true, couponId: "CPN-610" },
   },
   {
     toolName: "create_promotion",
     domainName: "coupons",
-    toolDescription:
+    coreDescription:
       "Creates an automatic promotion that applies to every eligible cart without any code. Do not use it when the customer must type a code at checkout; use create_coupon for that.",
     parameters: [
-      stringParameter("promotionName", "Internal name of the promotion."),
-      numberParameter("discountPercent", "Percent off, 0-100."),
-      stringParameter("startsOn", "First day, ISO date."),
-      stringParameter("endsOn", "Last day, ISO date."),
+      stringParameter("promotionName", "Internal name of the promotion, shown in reports only."),
+      numberParameter("discountPercent", "Percent off every eligible cart, from 0 to 100."),
+      stringParameter("startsOn", "First day the promotion runs, as an ISO date."),
+      stringParameter("endsOn", "Last day the promotion runs, as an ISO date."),
     ],
     lookAlikeOf: "create_coupon",
     fixedResult: { created: true, promotionId: "PRM-44" },
@@ -90,18 +94,21 @@ export const COUPON_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "deactivate_coupon",
     domainName: "coupons",
-    toolDescription:
+    coreDescription:
       "Turns off a coupon immediately so that it can no longer be redeemed. Orders that already used it keep their discount.",
     parameters: [
       stringParameter("couponCode", COUPON_CODE_DESCRIPTION),
-      stringParameter("deactivationReason", "Why the coupon is turned off."),
+      stringParameter(
+        "deactivationReason",
+        "Why the coupon is turned off, kept in the coupon history.",
+      ),
     ],
     fixedResult: { deactivated: true },
   },
   {
     toolName: "list_active_coupons",
     domainName: "coupons",
-    toolDescription:
+    coreDescription:
       "Lists coupons that are active today, optionally only those targeted at one customer.",
     parameters: [
       stringParameter("customerId", "Only coupons available to this customer.", {
@@ -113,7 +120,7 @@ export const COUPON_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "get_coupon_usage",
     domainName: "coupons",
-    toolDescription:
+    coreDescription:
       "Returns aggregate usage of a coupon: total redemptions, remaining uses, and total discount given.",
     parameters: [stringParameter("couponCode", COUPON_CODE_DESCRIPTION)],
     fixedResult: { redemptionCount: 318, remainingUses: 182, totalDiscountInCents: 286200 },
@@ -121,7 +128,7 @@ export const COUPON_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "get_coupon_redemptions",
     domainName: "coupons",
-    toolDescription:
+    coreDescription:
       "Lists individual redemptions of a coupon with order identifier, customer and date. Do not use it for totals or counts; use get_coupon_usage for those.",
     parameters: [
       stringParameter("couponCode", COUPON_CODE_DESCRIPTION),

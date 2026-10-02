@@ -2,25 +2,25 @@ import {
   integerParameter,
   type MockToolDefinition,
   stringParameter,
-  withDomainNote,
 } from "../mock-tool-definition.js";
+import { withDomainNote } from "../tool-description.js";
 
 const REFUND_ID_DESCRIPTION = "Refund identifier, for example RF-2201.";
 const ORDER_ID_DESCRIPTION = "Order identifier, for example ORD-10422.";
 
 const DOMAIN_NOTE =
-  "Parameters: refundId is RF- plus digits; amountInCents may not exceed what was captured for the order. Limits: refunds above 50000 cents wait for manager approval; 20 refund writes per minute. Example: amountInCents 1250 returns 12.50 USD.";
+  "Refunds API: amounts are integer cents; refund IDs are RF- plus digits. Max 20 calls per minute.";
 
 export const REFUND_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {
     toolName: "create_refund",
     domainName: "refunds",
-    toolDescription:
+    coreDescription:
       "Refunds money for an order back to the original payment method (card or wallet). Use it when the customer wants their money back. Do not use it for goodwill gestures or when the customer accepts credit; use issue_store_credit for that.",
     parameters: [
       stringParameter("orderId", ORDER_ID_DESCRIPTION),
       integerParameter("amountInCents", "Amount to refund in the order currency, in cents."),
-      stringParameter("refundReason", "Why the money is returned.", {
+      stringParameter("refundReason", "Why the money is returned; used in refund reporting.", {
         allowedValues: ["damagedItem", "lateDelivery", "wrongItem", "notReceived", "other"],
       }),
     ],
@@ -29,7 +29,7 @@ export const REFUND_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "issue_store_credit",
     domainName: "refunds",
-    toolDescription:
+    coreDescription:
       "Adds store credit to a customer account that they can spend on future orders. No money goes back to a card. Do not use it when the customer asks for money back to their original payment method; use create_refund for that.",
     parameters: [
       stringParameter("customerId", "Customer identifier, for example CUS-5531."),
@@ -42,7 +42,7 @@ export const REFUND_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "get_refund_status",
     domainName: "refunds",
-    toolDescription:
+    coreDescription:
       "Returns the status of one refund: pending, approved, sent, settled, failed or cancelled, with the date of the last change.",
     parameters: [stringParameter("refundId", REFUND_ID_DESCRIPTION)],
     fixedResult: { refundStatus: "pending", lastChangedOn: "2026-09-25" },
@@ -50,7 +50,7 @@ export const REFUND_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "list_order_refunds",
     domainName: "refunds",
-    toolDescription:
+    coreDescription:
       "Lists every refund already created for one order, with amount, reason and status.",
     parameters: [stringParameter("orderId", ORDER_ID_DESCRIPTION)],
     fixedResult: {
@@ -60,7 +60,7 @@ export const REFUND_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "check_refund_eligibility",
     domainName: "refunds",
-    toolDescription:
+    coreDescription:
       "Checks whether one specific order can be refunded right now and returns the maximum refundable amount and any blocking reason.",
     parameters: [stringParameter("orderId", ORDER_ID_DESCRIPTION)],
     fixedResult: { isEligible: true, maximumRefundableInCents: 4190, blockingReason: null },
@@ -68,7 +68,7 @@ export const REFUND_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "get_refund_policy",
     domainName: "refunds",
-    toolDescription:
+    coreDescription:
       "Returns the general refund policy text for a product category (time limits, conditions, exclusions). Do not use it to decide whether a specific order can be refunded; use check_refund_eligibility for that.",
     parameters: [
       stringParameter("productCategory", "Product category, for example apparel or furniture."),
@@ -79,18 +79,21 @@ export const REFUND_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "cancel_refund",
     domainName: "refunds",
-    toolDescription:
+    coreDescription:
       "Cancels a refund that has not been sent to the payment processor yet. Sent refunds cannot be cancelled.",
     parameters: [
       stringParameter("refundId", REFUND_ID_DESCRIPTION),
-      stringParameter("cancellationReason", "Why the refund is cancelled."),
+      stringParameter(
+        "cancellationReason",
+        "Why the refund is cancelled, kept in the refund history.",
+      ),
     ],
     fixedResult: { cancelled: true },
   },
   {
     toolName: "approve_refund",
     domainName: "refunds",
-    toolDescription:
+    coreDescription:
       "Approves a pending refund that needs manager sign-off so that it can be sent.",
     parameters: [
       stringParameter("refundId", REFUND_ID_DESCRIPTION),
@@ -103,7 +106,7 @@ export const REFUND_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "escalate_refund",
     domainName: "refunds",
-    toolDescription:
+    coreDescription:
       "Escalates a delayed or disputed refund to the finance team with a reason. Use it when a refund has been pending too long.",
     parameters: [
       stringParameter("refundId", REFUND_ID_DESCRIPTION),
@@ -114,7 +117,7 @@ export const REFUND_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOT
   {
     toolName: "get_refund_summary_report",
     domainName: "refunds",
-    toolDescription:
+    coreDescription:
       "Returns totals of refunds in a date range: count, amount, and a breakdown by reason.",
     parameters: [
       stringParameter("startDate", "First day of the range, ISO date."),

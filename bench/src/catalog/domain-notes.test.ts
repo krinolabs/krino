@@ -16,13 +16,21 @@ function splitSentences(noteText: string): Array<string> {
   return noteText.split(/(?<=\.)\s+/).filter((sentence) => sentence.length > 0);
 }
 
-describe("domain notes (description padding)", () => {
+const ALL_PARAMETER_NAMES = new Set(
+  MOCK_TOOL_CATALOG.flatMap((toolDefinition) =>
+    toolDefinition.parameters.map((parameter) => parameter.parameterName),
+  ),
+);
+
+describe("domain notes (the only text shared across tools)", () => {
   const domainNotesByDomain = collectDomainNotes();
 
   it("ends every tool description with its domain note", () => {
     for (const toolDefinition of MOCK_TOOL_CATALOG) {
       expect(
-        toolDefinition.toolDescription.endsWith(` ${toolDefinition.domainNote}`),
+        toolDefinition.toolDescription.endsWith(`
+
+${toolDefinition.domainNote}`),
         toolDefinition.toolName,
       ).toBe(true);
     }
@@ -32,7 +40,7 @@ describe("domain notes (description padding)", () => {
     expect(domainNotesByDomain.get(domainName)?.size).toBe(1);
   });
 
-  it("never shares padding text between two domains", () => {
+  it("never shares note text between two domains", () => {
     const domainNotes = [...domainNotesByDomain.values()].flatMap((domainNoteSet) => [
       ...domainNoteSet,
     ]);
@@ -40,7 +48,7 @@ describe("domain notes (description padding)", () => {
     expect(new Set(domainNotes).size).toBe(domainNotes.length);
   });
 
-  it("never repeats a padding sentence in two domains", () => {
+  it("never repeats a note sentence in two domains", () => {
     const domainNameBySentence = new Map<string, MockToolDomainName>();
     for (const [domainName, domainNoteSet] of domainNotesByDomain) {
       for (const sentence of [...domainNoteSet].flatMap(splitSentences)) {
@@ -54,10 +62,20 @@ describe("domain notes (description padding)", () => {
     }
   });
 
-  it("reads like API docs: parameters, limits, and an example", () => {
+  it("names no parameter of any tool", () => {
     for (const [domainName, domainNoteSet] of domainNotesByDomain) {
       for (const domainNote of domainNoteSet) {
-        expect(domainNote, domainName).toMatch(/^Parameters: .+ Limits: .+ Example: .+$/);
+        const noteWords = domainNote.match(/[A-Za-z]+/g) ?? [];
+        const parameterWords = noteWords.filter((noteWord) => ALL_PARAMETER_NAMES.has(noteWord));
+        expect(parameterWords, domainName).toEqual([]);
+      }
+    }
+  });
+
+  it("contains no camelCase identifiers", () => {
+    for (const [domainName, domainNoteSet] of domainNotesByDomain) {
+      for (const domainNote of domainNoteSet) {
+        expect(domainNote, domainName).not.toMatch(/\b[a-z]+[A-Z]\w*\b/);
       }
     }
   });

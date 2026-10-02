@@ -2,20 +2,20 @@ import {
   integerParameter,
   type MockToolDefinition,
   stringParameter,
-  withDomainNote,
 } from "../mock-tool-definition.js";
+import { withDomainNote } from "../tool-description.js";
 
 const PAYMENT_ID_DESCRIPTION = "Payment identifier, for example PAY-8812.";
 const DISPUTE_ID_DESCRIPTION = "Dispute identifier, for example DSP-410.";
 
 const DOMAIN_NOTE =
-  "Parameters: paymentId is PAY- plus digits; amounts are integer cents; payment methods are tokens, never card numbers. Limits: each write is idempotent per payment for 24 hours. Example: capturing amountInCents 8000 collects 80.00 USD.";
+  "Payments API: amounts are integer cents; card numbers never appear. Max 25 calls per minute.";
 
 export const PAYMENT_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {
     toolName: "get_payment_status",
     domainName: "payments",
-    toolDescription:
+    coreDescription:
       "Returns the status of one payment (authorized, captured, failed, voided, refunded) and the processor's decline code if it failed.",
     parameters: [stringParameter("paymentId", PAYMENT_ID_DESCRIPTION)],
     fixedResult: { paymentStatus: "failed", declineCode: "insufficientFunds" },
@@ -23,18 +23,18 @@ export const PAYMENT_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NO
   {
     toolName: "authorize_payment",
     domainName: "payments",
-    toolDescription:
+    coreDescription:
       "Places a new hold on the customer's saved payment method for an order amount. No money moves until capture.",
     parameters: [
       stringParameter("orderId", "Order identifier, for example ORD-10422."),
-      integerParameter("amountInCents", "Amount to hold, in cents."),
+      integerParameter("amountInCents", "Amount to hold on the saved payment method, in cents."),
     ],
     fixedResult: { paymentId: "PAY-8850", paymentStatus: "authorized" },
   },
   {
     toolName: "capture_payment",
     domainName: "payments",
-    toolDescription:
+    coreDescription:
       "Collects money that was already authorized on an existing payment, fully or partly. Do not use it to place a new hold on a card; use authorize_payment for that.",
     parameters: [
       stringParameter("paymentId", PAYMENT_ID_DESCRIPTION),
@@ -48,7 +48,7 @@ export const PAYMENT_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NO
   {
     toolName: "list_order_payments",
     domainName: "payments",
-    toolDescription: "Lists every payment attempt for an order with amount, method and status.",
+    coreDescription: "Lists every payment attempt for an order with amount, method and status.",
     parameters: [stringParameter("orderId", "Order identifier, for example ORD-10422.")],
     fixedResult: {
       payments: [{ paymentId: "PAY-8812", amountInCents: 4190, paymentStatus: "captured" }],
@@ -57,7 +57,7 @@ export const PAYMENT_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NO
   {
     toolName: "retry_failed_payment",
     domainName: "payments",
-    toolDescription:
+    coreDescription:
       "Retries a failed payment once with the same payment method. Use it after the customer fixes the cause.",
     parameters: [stringParameter("paymentId", PAYMENT_ID_DESCRIPTION)],
     fixedResult: { paymentStatus: "captured", retryCount: 1 },
@@ -65,7 +65,7 @@ export const PAYMENT_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NO
   {
     toolName: "update_payment_method",
     domainName: "payments",
-    toolDescription:
+    coreDescription:
       "Replaces a customer's default saved payment method with a new tokenized card or wallet.",
     parameters: [
       stringParameter("customerId", "Customer identifier, for example CUS-5531."),
@@ -76,7 +76,7 @@ export const PAYMENT_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NO
   {
     toolName: "get_saved_payment_methods",
     domainName: "payments",
-    toolDescription:
+    coreDescription:
       "Lists a customer's saved payment methods with brand, last four digits and expiry.",
     parameters: [stringParameter("customerId", "Customer identifier, for example CUS-5531.")],
     fixedResult: {
@@ -86,7 +86,7 @@ export const PAYMENT_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NO
   {
     toolName: "get_dispute_details",
     domainName: "payments",
-    toolDescription:
+    coreDescription:
       "Returns a card dispute (chargeback): reason, amount, related payment and order, and the evidence deadline.",
     parameters: [stringParameter("disputeId", DISPUTE_ID_DESCRIPTION)],
     fixedResult: {
@@ -99,7 +99,7 @@ export const PAYMENT_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NO
   {
     toolName: "submit_dispute_evidence",
     domainName: "payments",
-    toolDescription:
+    coreDescription:
       "Sends evidence to the card network to contest a dispute, such as delivery proof or customer messages.",
     parameters: [
       stringParameter("disputeId", DISPUTE_ID_DESCRIPTION),
@@ -113,7 +113,7 @@ export const PAYMENT_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NO
   {
     toolName: "accept_dispute",
     domainName: "payments",
-    toolDescription:
+    coreDescription:
       "Concedes a dispute: the customer keeps the money and no evidence is sent. Do not use it to contest a dispute; use submit_dispute_evidence for that.",
     parameters: [stringParameter("disputeId", DISPUTE_ID_DESCRIPTION)],
     lookAlikeOf: "submit_dispute_evidence",

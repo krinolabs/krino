@@ -19,12 +19,17 @@ export {
 export {
   type CatalogSizeEstimate,
   CHARACTERS_PER_TOKEN,
+  type DomainNoteShareReport,
   estimateCatalogSize,
-  measurePaddingShare,
-  type PaddingShareReport,
-  reportPaddingShare,
+  measureDomainNoteShare,
+  reportDomainNoteShare,
   serializeToolDefinition,
 } from "./catalog/token-estimate.js";
+export {
+  buildParametersSection,
+  composeToolDescription,
+  withDomainNote,
+} from "./catalog/tool-description.js";
 export {
   executeMockTool,
   type MockToolExecutionFailed,

@@ -2,21 +2,21 @@ import {
   integerParameter,
   type MockToolDefinition,
   stringParameter,
-  withDomainNote,
 } from "../mock-tool-definition.js";
+import { withDomainNote } from "../tool-description.js";
 
 const SERVICE_NAME_DESCRIPTION = "Service name, for example checkout-service.";
 const START_TIME_DESCRIPTION = "Start of the time range, ISO date-time in UTC.";
 const END_TIME_DESCRIPTION = "End of the time range, ISO date-time in UTC.";
 
 const DOMAIN_NOTE =
-  "Parameters: times are ISO 8601 date-times in UTC; serviceName is lower case with dashes. Limits: ranges over 24 hours are rejected, results stop at 200 lines, and secrets are redacted. Example: from 2026-10-01T10:00:00Z to 2026-10-01T10:15:00Z.";
+  "Observability API: times are UTC and log text is redacted. Max 10 calls per minute.";
 
 export const LOG_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {
     toolName: "search_application_logs",
     domainName: "logs",
-    toolDescription:
+    coreDescription:
       "Searches the application logs of a service for a text or request identifier within a time range. Returns matching lines with level and timestamp.",
     parameters: [
       stringParameter("serviceName", SERVICE_NAME_DESCRIPTION),
@@ -37,7 +37,7 @@ export const LOG_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, 
   {
     toolName: "search_audit_logs",
     domainName: "logs",
-    toolDescription:
+    coreDescription:
       "Searches the audit trail of who changed what in the admin system (prices, settings, permissions) for one resource. Do not use it for runtime errors or request debugging; use search_application_logs for that.",
     parameters: [
       stringParameter("resourceId", "Changed resource, for example PRD-77."),
@@ -53,7 +53,7 @@ export const LOG_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, 
   {
     toolName: "get_error_rate",
     domainName: "logs",
-    toolDescription:
+    coreDescription:
       "Returns the percentage of failed requests for a service over the last N minutes, with the top error messages.",
     parameters: [
       stringParameter("serviceName", SERVICE_NAME_DESCRIPTION),
@@ -64,7 +64,7 @@ export const LOG_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, 
   {
     toolName: "get_service_health",
     domainName: "logs",
-    toolDescription:
+    coreDescription:
       "Returns whether a service is up, degraded or down right now, from health checks. Do not use it for error percentages over time; use get_error_rate for that.",
     parameters: [stringParameter("serviceName", SERVICE_NAME_DESCRIPTION)],
     lookAlikeOf: "get_error_rate",
@@ -73,7 +73,7 @@ export const LOG_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, 
   {
     toolName: "get_request_trace",
     domainName: "logs",
-    toolDescription:
+    coreDescription:
       "Returns the distributed trace of one request: every service it touched, with duration and status.",
     parameters: [stringParameter("requestId", "Request identifier, for example REQ-7f3a.")],
     fixedResult: {
@@ -86,7 +86,7 @@ export const LOG_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, 
   {
     toolName: "get_webhook_delivery_log",
     domainName: "logs",
-    toolDescription:
+    coreDescription:
       "Returns recent delivery attempts to a webhook endpoint with HTTP status and response time.",
     parameters: [
       stringParameter("webhookEndpointId", "Endpoint identifier, for example WH-EP-3."),
@@ -99,11 +99,11 @@ export const LOG_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, 
   {
     toolName: "get_email_delivery_log",
     domainName: "logs",
-    toolDescription:
+    coreDescription:
       "Returns transactional emails sent to an address since a date, with delivery status (delivered, bounced, spam).",
     parameters: [
-      stringParameter("emailAddress", "Recipient email address."),
-      stringParameter("sinceDate", "Earliest send date, ISO date."),
+      stringParameter("emailAddress", "Recipient email address, matched exactly."),
+      stringParameter("sinceDate", "Earliest send date to include, as an ISO date."),
     ],
     fixedResult: {
       emails: [{ templateName: "orderConfirmation", deliveryStatus: "bounced" }],
@@ -112,17 +112,17 @@ export const LOG_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, 
   {
     toolName: "get_job_run_log",
     domainName: "logs",
-    toolDescription: "Returns the output and exit status of one scheduled job run on a date.",
+    coreDescription: "Returns the output and exit status of one scheduled job run on a date.",
     parameters: [
       stringParameter("jobName", "Scheduled job name, for example nightly-invoice-export."),
-      stringParameter("runDate", "Run date, ISO date."),
+      stringParameter("runDate", "Day the job ran, as an ISO date."),
     ],
     fixedResult: { exitStatus: "succeeded", durationInSeconds: 412 },
   },
   {
     toolName: "tail_service_logs",
     domainName: "logs",
-    toolDescription:
+    coreDescription:
       "Returns the most recent N log lines of a service with no filtering. Do not use it to find specific text or a time range; use search_application_logs for that.",
     parameters: [
       stringParameter("serviceName", SERVICE_NAME_DESCRIPTION),
@@ -134,13 +134,15 @@ export const LOG_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, 
   {
     toolName: "export_logs",
     domainName: "logs",
-    toolDescription:
+    coreDescription:
       "Exports a service's logs for a time range to a downloadable file and returns its link.",
     parameters: [
       stringParameter("serviceName", SERVICE_NAME_DESCRIPTION),
       stringParameter("startTime", START_TIME_DESCRIPTION),
       stringParameter("endTime", END_TIME_DESCRIPTION),
-      stringParameter("fileFormat", "File format.", { allowedValues: ["csv", "jsonl"] }),
+      stringParameter("fileFormat", "Format of the exported file.", {
+        allowedValues: ["csv", "jsonl"],
+      }),
     ],
     fixedResult: { exportId: "EXP-31", downloadPath: "exports/EXP-31.csv" },
   },
