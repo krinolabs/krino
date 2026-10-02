@@ -7,6 +7,8 @@
 - **Owner role:** Claude Code.
 - **Depends on:** [WP-01](./wp-01-contracts.md) (stub runtime), [WP-02](./wp-02-core-runtime.md), [WP-03](./wp-03-decision-providers.md), [WP-04](./wp-04-file-trace-sink-redaction.md), [WP-08](./wp-08-risk-gate-policy.md) to finish.
 - **Owns:** `packages/krino/src/adapters/claude-agent-sdk/**`.
+- **Main model rule:** `RunSummaryTrace.modelIdentifier` = the `model` option passed to
+  `query()`; if absent, the model with the most input tokens in the result's usage.
 - **Deliverables:**
   - `krinoAgentOptions(queryOptions, krinoRuntime, taskText)` returns options for `query()`:
     - **Run start:** `decideToolSelection`; enforce mode sets `allowedTools` (merged with the user's list; never widens it).
