@@ -11,6 +11,7 @@ import { DEFAULT_MODEL_PRICES, findModelPrice } from "../../pricing/index.js";
 import { buildStepContext, describeTools } from "./step-context.js";
 import { addTokenUsage, EMPTY_TOKEN_USAGE, tokenUsageFromStep } from "./token-usage.js";
 import { warnOnce } from "./warn-once.js";
+import type { ToolCallNotice } from "./wrap-tools.js";
 
 export const AI_SDK_HOST_CAPABILITIES: HostCapabilities = {
   supportedDecisions: ["toolSelection", "riskGate"],
@@ -51,9 +52,6 @@ export type PrepareStepInput = {
   readonly messages: Array<ModelMessage>;
 };
 
-/** Where a tool call belongs, for the risk gate. */
-export type ToolCallRun = { runHandle: RunHandle; stepNumber: number };
-
 /** One generateText or streamText call, which is one krino run. */
 type CallRun = {
   callId: string | null;
@@ -86,7 +84,8 @@ export type CallRunRegistry = {
     callerActiveTools: ReadonlyArray<string> | undefined,
   ) => Promise<Array<string> | undefined>;
   noteToolExecution: (toolExecutionEvent: ToolExecutionStartEvent) => void;
-  takeToolCallRun: (toolCallId: string) => ToolCallRun | null;
+  /** Records a risk check for a tool call that is about to run. Never throws. */
+  checkToolCall: (toolCallNotice: ToolCallNotice) => void;
   recordStep: (stepEndEvent: CallStepEndEvent) => void;
   finishCall: (callId: string) => void;
   finishAllCalls: () => void;
@@ -283,14 +282,36 @@ export function createCallRunRegistry(registryOptions: CallRunRegistryOptions): 
     callIdByToolCallId.set(toolExecutionEvent.toolCall.toolCallId, toolExecutionEvent.callId);
   };
 
-  const takeToolCallRun = (toolCallId: string): ToolCallRun | null => {
-    const callId = callIdByToolCallId.get(toolCallId);
-    callIdByToolCallId.delete(toolCallId);
+  const checkToolCall = (toolCallNotice: ToolCallNotice): void => {
+    const callId = callIdByToolCallId.get(toolCallNotice.toolCallId);
+    callIdByToolCallId.delete(toolCallNotice.toolCallId);
     const callRun = findCallRun(callId);
     if (callRun === null || callRun.isFinished) {
-      return null;
+      // Called outside a krino run (for example, directly by the caller): nothing to record.
+      return;
     }
-    return { runHandle: callRun.runHandle, stepNumber: callRun.currentStepNumber };
+    const toolInput = toolCallNotice.toolInput;
+    const toolArguments: Record<string, unknown> =
+      typeof toolInput === "object" && toolInput !== null && !Array.isArray(toolInput)
+        ? (toolInput as Record<string, unknown>)
+        : { input: toolInput };
+    const warnRiskFailure = (riskError: unknown): void => {
+      warn(`krino: AI SDK adapter risk check failed: ${String(riskError)}`);
+    };
+    // v0.1: the risk gate is always shadow (verdictToApply is null). The check is recorded
+    // synchronously and answered in the background; the tool runs at once, as before.
+    try {
+      callRun.runHandle
+        .checkToolCallRisk({
+          runIdentifier: callRun.runHandle.runIdentifier,
+          stepNumber: callRun.currentStepNumber,
+          toolName: toolCallNotice.toolName,
+          toolArguments,
+        })
+        .catch(warnRiskFailure);
+    } catch (riskError) {
+      warnRiskFailure(riskError);
+    }
   };
 
   const recordStep = (stepEndEvent: CallStepEndEvent): void => {
@@ -399,7 +420,7 @@ export function createCallRunRegistry(registryOptions: CallRunRegistryOptions): 
     startCall,
     prepareStep,
     noteToolExecution,
-    takeToolCallRun,
+    checkToolCall,
     recordStep,
     finishCall,
     finishAllCalls,

@@ -8,6 +8,7 @@ import {
   type ToolExecutionStartEvent,
 } from "./call-runs.js";
 import { readAiSdkVersion } from "./host-sdk-version.js";
+import { wrapToolsForRiskGate } from "./wrap-tools.js";
 
 /** Options for `generateText`, typed for the caller's tool set. */
 export type GenerateTextOptions<CallTools extends ToolSet> = Parameters<
@@ -123,8 +124,14 @@ export function withKrino(
     return mergePrepareStepResult(callerResult, krinoActiveTools);
   };
 
+  const toolOverrides: Pick<ComposableCallOptions, "tools"> =
+    callOptions.tools === undefined
+      ? {}
+      : { tools: wrapToolsForRiskGate(toolsByName, registry.checkToolCall) };
+
   return {
     ...callOptions,
+    ...toolOverrides,
     prepareStep,
     onStart: composeCallback(
       registry.startCall,
