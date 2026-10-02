@@ -16,7 +16,9 @@
     "rules": {
       "preset": "recommended",
       "suspicious": {
-        "noExplicitAny": "error"
+        "noExplicitAny": "error",
+        "noFocusedTests": "error",
+        "noSkippedTests": "error"
       },
       "style": {
         "noNonNullAssertion": "error",
