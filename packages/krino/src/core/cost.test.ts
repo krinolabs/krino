@@ -1,7 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { ModelPrice, TokenUsageRecord } from "../contracts/index.js";
-import { costFromUsage } from "./cost.js";
+import { DEFAULT_MODEL_PRICES } from "../pricing/index.js";
+import { costFromUsage, estimateDecisionCostInUsd } from "./cost.js";
 
 const sonnetLikePrice: ModelPrice = {
   modelIdentifier: "test-sonnet",
@@ -61,7 +62,7 @@ describe("costFromUsage", () => {
     ).toBe(0);
   });
 
-  it("property: cost is never negative and never NaN", () => {
+  it("property: cost and estimated decision cost are never negative and never NaN", () => {
     const anyNumber = fc.oneof(
       fc.double(),
       fc.integer({ min: -1_000_000_000, max: 1_000_000_000 }),
@@ -81,13 +82,22 @@ describe("costFromUsage", () => {
           cacheWriteMultiplier: anyNumber,
           cacheReadMultiplier: anyNumber,
         }),
-        (tokenUsage, priceFields) => {
-          const computedCost = costFromUsage(tokenUsage, {
-            ...priceFields,
-            modelIdentifier: "any",
-            verifiedOn: "2026-10-02",
+        anyNumber,
+        anyNumber,
+        (tokenUsage, priceFields, sentCharacterCount, answerCharacterCount) => {
+          const modelPrice = { ...priceFields, modelIdentifier: "any", verifiedOn: "2026-10-02" };
+          const computedCost = costFromUsage(tokenUsage, modelPrice);
+          const estimatedDecisionCost = estimateDecisionCostInUsd({
+            sentCharacterCount,
+            answerCharacterCount,
+            modelPrice,
           });
-          return computedCost >= 0 && !Number.isNaN(computedCost);
+          return (
+            computedCost >= 0 &&
+            !Number.isNaN(computedCost) &&
+            estimatedDecisionCost >= 0 &&
+            !Number.isNaN(estimatedDecisionCost)
+          );
         },
       ),
     );
@@ -112,5 +122,54 @@ describe("costFromUsage", () => {
         return moreCacheCost >= baseCost;
       }),
     );
+  });
+});
+
+describe("estimateDecisionCostInUsd (estimated in v0.1)", () => {
+  it("prices characters sent ÷ 4 as input and answer characters ÷ 4 as output", () => {
+    expect(
+      estimateDecisionCostInUsd({
+        sentCharacterCount: 4_000_000,
+        answerCharacterCount: 400_000,
+        modelPrice: sonnetLikePrice,
+      }),
+    ).toBeCloseTo((1_000_000 * 3 + 100_000 * 15) / 1_000_000, 12);
+  });
+
+  it("rounds partial tokens up", () => {
+    expect(
+      estimateDecisionCostInUsd({
+        sentCharacterCount: 10,
+        answerCharacterCount: 5,
+        modelPrice: sonnetLikePrice,
+      }),
+    ).toBeCloseTo((3 * 3 + 2 * 15) / 1_000_000, 15);
+  });
+
+  it("charges no output for Jev", () => {
+    const jevPrice = DEFAULT_MODEL_PRICES.find(
+      (modelPrice) => modelPrice.modelIdentifier === "typesafe-ai/jev",
+    );
+    expect(jevPrice).toBeDefined();
+    if (jevPrice === undefined) {
+      return;
+    }
+    expect(
+      estimateDecisionCostInUsd({
+        sentCharacterCount: 4_000_000,
+        answerCharacterCount: 4_000_000,
+        modelPrice: jevPrice,
+      }),
+    ).toBeCloseTo(0.042, 12);
+  });
+
+  it("is zero when nothing was sent or answered", () => {
+    expect(
+      estimateDecisionCostInUsd({
+        sentCharacterCount: 0,
+        answerCharacterCount: 0,
+        modelPrice: sonnetLikePrice,
+      }),
+    ).toBe(0);
   });
 });

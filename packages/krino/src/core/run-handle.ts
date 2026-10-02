@@ -1,5 +1,6 @@
 import type {
   AgentStepTrace,
+  DecisionAnswer,
   DecisionKind,
   DecisionMode,
   DecisionProvider,
@@ -20,8 +21,12 @@ import type {
 import { TRACE_SCHEMA_VERSION } from "../contracts/index.js";
 import { findModelPrice } from "../pricing/index.js";
 import { askProviderWithTimeout, type ProviderCallResult } from "./ask-provider.js";
-import { type ContextBudget, fitStepContextToBudget } from "./context-budget.js";
-import { costFromUsage } from "./cost.js";
+import {
+  type ContextBudget,
+  countSentCharacters,
+  fitStepContextToBudget,
+} from "./context-budget.js";
+import { costFromUsage, estimateDecisionCostInUsd } from "./cost.js";
 import { flushTraceSinkSafely } from "./flush-trace-sink.js";
 import { createPendingDecisionTracker } from "./pending-decisions.js";
 import type { ResolvedKrinoConfig } from "./resolve-config.js";
@@ -258,6 +263,32 @@ export function createManagedRun(runContext: RunContext): ManagedRun {
   };
 
   /**
+   * Estimated in v0.1: providers report no usage. The request was sent, so input is always
+   * counted; output only for answers. Priced by the answer's model version, else the provider
+   * name. `null` when neither has a price.
+   */
+  const estimateCost = (
+    sentCharacterCount: number,
+    decisionAnswers: ReadonlyArray<DecisionAnswer>,
+  ): number | null => {
+    const answeredModelVersion = decisionAnswers[0]?.decisionModelVersion;
+    const modelPrice =
+      (typeof answeredModelVersion === "string"
+        ? findModelPrice(answeredModelVersion, runContext.modelPrices)
+        : null) ?? findModelPrice(runContext.decisionProvider.providerName, runContext.modelPrices);
+    if (modelPrice === null) {
+      return null;
+    }
+    const answerCharacterCount = decisionAnswers.reduce(
+      (characterTotal, decisionAnswer) =>
+        characterTotal +
+        (typeof decisionAnswer?.choice === "string" ? decisionAnswer.choice.length : 0),
+      0,
+    );
+    return estimateDecisionCostInUsd({ sentCharacterCount, answerCharacterCount, modelPrice });
+  };
+
+  /**
    * Asks the provider and finalizes the decision with the result. The pending-decision tracker
    * can cut it off first; a late answer is then ignored. The returned promise never rejects.
    */
@@ -268,6 +299,7 @@ export function createManagedRun(runContext: RunContext): ManagedRun {
     finalFieldsFromResult: (providerCallResult: ProviderCallResult) => Partial<DecisionRecord>,
   ): Promise<void> => {
     const abortController = new AbortController();
+    const sentCharacterCount = countSentCharacters(stepContext, decisionQuestions);
     const settled = askProviderWithTimeout({
       decisionProvider: runContext.decisionProvider,
       decisionQuestions,
@@ -277,7 +309,13 @@ export function createManagedRun(runContext: RunContext): ManagedRun {
       monotonicTime: runContext.monotonicTime,
     })
       .then((providerCallResult) => {
-        finalizeDecision(trackedDecision, finalFieldsFromResult(providerCallResult));
+        finalizeDecision(trackedDecision, {
+          ...finalFieldsFromResult(providerCallResult),
+          decisionCostInUsd: estimateCost(
+            sentCharacterCount,
+            providerCallResult.resultKind === "answered" ? providerCallResult.decisionAnswers : [],
+          ),
+        });
       })
       .catch((unexpectedError: unknown) => {
         warn(`krino: decision bookkeeping failed: ${String(unexpectedError)}`);
@@ -287,7 +325,9 @@ export function createManagedRun(runContext: RunContext): ManagedRun {
       settled,
       cutOff: () => {
         abortController.abort();
-        finalizeDecision(trackedDecision, {});
+        finalizeDecision(trackedDecision, {
+          decisionCostInUsd: estimateCost(sentCharacterCount, []),
+        });
       },
     });
     return settled;

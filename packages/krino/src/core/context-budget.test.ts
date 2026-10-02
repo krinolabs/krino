@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StepContext } from "../contracts/index.js";
 import {
+  countSentCharacters,
   estimateContextTokens,
   estimateTokenCount,
   fitStepContextToBudget,
@@ -85,5 +86,16 @@ describe("fitStepContextToBudget", () => {
     if (fitted.fitsBudget) {
       expect(fitted.stepContext.recentMessagesText).toBe("");
     }
+  });
+});
+
+describe("countSentCharacters", () => {
+  it("counts task, tool names and descriptions, questions, options and messages", () => {
+    const context = stepContext({ taskText: "abc", recentMessagesText: "12345" });
+    const decisionQuestions = [
+      { decisionKind: "riskGate" as const, questionText: "Safe?", options: ["yes", "no"] },
+    ];
+    // task "abc", tool name and description, question "Safe?", options "yes" + newline + "no", messages
+    expect(countSentCharacters(context, decisionQuestions)).toBe(3 + 6 + 25 + 5 + 6 + 5);
   });
 });

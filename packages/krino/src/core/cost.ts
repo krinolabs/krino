@@ -1,4 +1,5 @@
 import type { ModelPrice, TokenUsageRecord } from "../contracts/index.js";
+import { estimateTokensFromCharacters } from "./context-budget.js";
 
 const TOKENS_PER_MILLION = 1_000_000;
 
@@ -26,6 +27,31 @@ export function costFromUsage(tokenUsage: TokenUsageRecord, modelPrice: ModelPri
     tokenCost(tokenUsage.cacheReadTokens, cacheReadPrice);
 
   return costPerMillion / TOKENS_PER_MILLION;
+}
+
+export type DecisionCostEstimateInput = {
+  /** Characters of everything sent to the provider. */
+  sentCharacterCount: number;
+  /** Characters of the answers' choices; 0 when there was no answer. */
+  answerCharacterCount: number;
+  /** Price of the decision model. */
+  modelPrice: ModelPrice;
+};
+
+/**
+ * Estimated cost of one decision request: (characters sent ÷ 4) × input price, plus
+ * (answer characters ÷ 4) × output price. Providers report no token usage, so v0.1 estimates.
+ */
+export function estimateDecisionCostInUsd(costEstimateInput: DecisionCostEstimateInput): number {
+  return costFromUsage(
+    {
+      inputTokens: estimateTokensFromCharacters(costEstimateInput.sentCharacterCount),
+      outputTokens: estimateTokensFromCharacters(costEstimateInput.answerCharacterCount),
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    },
+    costEstimateInput.modelPrice,
+  );
 }
 
 /** Zero tokens cost nothing, even at an overflowed (infinite) price: avoids `0 × Infinity = NaN`. */

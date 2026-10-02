@@ -14,7 +14,11 @@ export type FittedStepContext =
 
 /** Tokens estimated as characters ÷ 4, rounded up. */
 export function estimateTokenCount(text: string): number {
-  return Math.ceil(text.length / CHARACTERS_PER_TOKEN);
+  return estimateTokensFromCharacters(text.length);
+}
+
+export function estimateTokensFromCharacters(characterCount: number): number {
+  return Math.ceil(characterCount / CHARACTERS_PER_TOKEN);
 }
 
 export function usableTokenCount(contextBudget: ContextBudget): number {
@@ -50,6 +54,31 @@ export function estimateContextTokens(
   return (
     estimateFixedTokens(stepContext, decisionQuestions) +
     estimateTokenCount(stepContext.recentMessagesText)
+  );
+}
+
+/** Every character sent to the provider: task, tools, questions, options and messages. */
+export function countSentCharacters(
+  stepContext: StepContext,
+  decisionQuestions: ReadonlyArray<DecisionQuestion>,
+): number {
+  const toolCharacters = stepContext.availableTools.reduce(
+    (characterTotal, toolDescription) =>
+      characterTotal + toolDescription.toolName.length + toolDescription.toolDescription.length,
+    0,
+  );
+  const questionCharacters = decisionQuestions.reduce(
+    (characterTotal, decisionQuestion) =>
+      characterTotal +
+      decisionQuestion.questionText.length +
+      (decisionQuestion.options ?? []).join("\n").length,
+    0,
+  );
+  return (
+    stepContext.taskText.length +
+    toolCharacters +
+    questionCharacters +
+    stepContext.recentMessagesText.length
   );
 }
 
