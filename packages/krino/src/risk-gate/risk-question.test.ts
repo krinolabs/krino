@@ -60,4 +60,14 @@ describe("buildRiskQuestion", () => {
       "could not be serialized",
     );
   });
+
+  it("sends empty arguments when serializing them yields nothing", () => {
+    // JSON.stringify returns undefined, not a string, when toJSON returns undefined.
+    const argumentsWithoutJson: Record<string, unknown> = { toJSON: () => undefined };
+    const questionText = buildRiskQuestion(
+      toolCall("sendEmail", argumentsWithoutJson),
+    ).questionText;
+    expect(questionText).toContain("Arguments (JSON): {}");
+    expect(questionText).not.toContain("could not be serialized");
+  });
 });
