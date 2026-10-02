@@ -71,6 +71,12 @@ type TrackedDecision = {
   isFinal: boolean;
 };
 
+/** The run's step-0 tool selection, for the run summary's agreement metric. */
+type StepZeroToolSelection = {
+  trackedDecision: TrackedDecision;
+  settledSuggestion: { latest: ToolSelectionSuggestion | null };
+};
+
 type HeldStep = {
   stepTrace: AgentStepTrace;
   adapterDecisions: Array<DecisionRecord>;
@@ -190,6 +196,7 @@ export function createManagedRun(runContext: RunContext): ManagedRun {
   let lockedToolNames: Array<string> | null = null;
   let latestTaskText = "";
   let latestAvailableTools: Array<ToolDescription> = [];
+  let stepZeroToolSelection: StepZeroToolSelection | null = null;
 
   const hostSupports = (decisionKind: DecisionKind): boolean =>
     runStart.capabilities.supportedDecisions.includes(decisionKind);
@@ -433,6 +440,9 @@ export function createManagedRun(runContext: RunContext): ManagedRun {
         }),
         false,
       );
+      if (isFirstCall && stepNumber === 0) {
+        stepZeroToolSelection = { trackedDecision, settledSuggestion };
+      }
       void askInBackground(
         trackedDecision,
         decisionQuestions,
@@ -452,6 +462,9 @@ export function createManagedRun(runContext: RunContext): ManagedRun {
       createDecisionRecord("toolSelection", "enforce", { decisionStatus: "cutOff" }),
       false,
     );
+    if (isFirstCall && stepNumber === 0) {
+      stepZeroToolSelection = { trackedDecision, settledSuggestion };
+    }
     await askInBackground(
       trackedDecision,
       decisionQuestions,
@@ -643,6 +656,28 @@ export function createManagedRun(runContext: RunContext): ManagedRun {
     }
   };
 
+  /**
+   * `true` when every used tool is inside the settled step-0 suggestion, `false` otherwise.
+   * `null` without an answered step-0 suggestion (for example cut off, timed out or exploration).
+   */
+  const agreementWithStepZeroSuggestion = (
+    usedToolNames: ReadonlyArray<string>,
+  ): boolean | null => {
+    if (stepZeroToolSelection === null || !Array.isArray(usedToolNames)) {
+      return null;
+    }
+    const { trackedDecision, settledSuggestion } = stepZeroToolSelection;
+    const suggestedToolNames = settledSuggestion.latest?.suggestedToolNames ?? null;
+    if (
+      trackedDecision.decisionRecord.decisionStatus !== "answered" ||
+      suggestedToolNames === null
+    ) {
+      return null;
+    }
+    const suggestedToolNameSet = new Set(suggestedToolNames);
+    return usedToolNames.every((toolName) => suggestedToolNameSet.has(toolName));
+  };
+
   const finishRunSafely = async (runSummary: RunSummaryInput): Promise<void> => {
     const flushTimeout = runContext.flushTimeoutInMilliseconds;
     const deadline = runContext.monotonicTime() + flushTimeout;
@@ -662,6 +697,9 @@ export function createManagedRun(runContext: RunContext): ManagedRun {
 
     writeRecordSafely({
       ...runSummary,
+      toolSelectionAgreement:
+        runSummary.toolSelectionAgreement ??
+        agreementWithStepZeroSuggestion(runSummary.usedToolNames),
       traceSchemaVersion: TRACE_SCHEMA_VERSION,
       recordType: "runSummary",
       projectName: resolvedConfig.projectName,
