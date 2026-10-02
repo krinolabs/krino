@@ -9,6 +9,7 @@
 - Every WP may also write to `.changeset/` (add a changeset for user-visible changes).
 - Do not edit packages/krino/src/contracts/** after WP-01. Need a change? Stop and write
   "CONTRACT CHANGE REQUEST" with the reason in your PR description.
+- packages/krino/src/index.ts is lead-owned. Propose changes in the PR description.
 - Do not add dependencies outside your card without saying why in the PR.
 
 ## Code style
@@ -19,12 +20,16 @@
 - ESM only. Node 22+.
 - Small pure functions in core; I/O at the edges.
 - Errors: never throw into the host agent from a background path. Record and continue.
+- Never index a plain object with an external string (tool names, MCP data). Use a Map
+  or check Object.hasOwn first. Test with 'constructor', 'toString', and '__proto__'.
 
 ## Tests
 - Vitest. Every behavior in `04-behavior-rules.md` that your WP touches needs a test.
 - No network in tests. Use the fake provider and recorded fixtures.
 - Live tests only behind `KRINO_LIVE=1`; never in CI.
 - Put tests next to the code as `*.test.ts`.
+- Every package with tests must include tooling/vitest/trace-isolation.ts in its Vitest
+  setupFiles.
 
 ## Verify, do not guess
 - SDK option names, hook names, metadata keys, and package names change often.

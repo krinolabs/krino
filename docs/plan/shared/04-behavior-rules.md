@@ -16,4 +16,5 @@
 - **Enforce mode waits** up to `decisionTimeoutInMilliseconds`.
 - **Tool selection in enforce mode only changes the tool list on step 0** (AI SDK) or at run start (Claude Agent SDK). Never later: it breaks the prompt cache.
 - **The risk gate cannot be set to fail open.** Block rules in code always win over the model.
+- **The risk gate uses the tool's own threshold.** It compares the answer to the tool's entry in `riskGatePolicy.allowThresholdByToolName`, never to `minimumConfidence` (that is for tool selection only). No entry means no threshold: suggest `askHuman`.
 - **Costs always include cache read and cache write tokens.**
