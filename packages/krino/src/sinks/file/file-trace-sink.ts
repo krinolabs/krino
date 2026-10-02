@@ -139,6 +139,7 @@ function groupConsecutiveLinesByDay(
  *
  * `writeRecord` only buffers; lines are written in the background, in order, by one writer.
  * `flush(timeout)` resolves once the buffer is on disk or the timeout passes.
+ * Durable when the process exits; not protected against power loss (the sink does not fsync).
  * Nothing here throws into the host: the first failure is logged once to stderr, the failed
  * lines are dropped, and later writes are tried again.
  */
