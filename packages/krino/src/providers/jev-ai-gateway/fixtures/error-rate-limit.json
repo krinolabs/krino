@@ -1,0 +1,7 @@
+{
+  "source": "schema",
+  "status": 429,
+  "body": {
+    "error": { "message": "Rate limit exceeded", "type": "rate_limit_exceeded" }
+  }
+}

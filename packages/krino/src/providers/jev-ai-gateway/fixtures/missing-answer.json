@@ -1,0 +1,11 @@
+{
+  "source": "schema",
+  "status": 200,
+  "body": {
+    "answers": {
+      "question_0": { "type": "boolean", "probability": 0.9 }
+    },
+    "model": "typesafe-ai/jev-fixture-version",
+    "warnings": []
+  }
+}
