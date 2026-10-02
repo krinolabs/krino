@@ -29,3 +29,22 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run lint typecheck test build
+
+  cli-os:
+    # The CLI ships DuckDB's native binary; check it loads and the tests pass on each OS.
+    name: cli tests (${{ matrix.os }}, node 22)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # turbo builds @krinolabs/krino first (test depends on ^build).
+      - run: pnpm turbo run test --filter=@krinolabs/cli
