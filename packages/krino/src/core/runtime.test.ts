@@ -4,12 +4,14 @@ import type {
   DecisionProvider,
   HostCapabilities,
   KrinoConfig,
+  ModelPrice,
   PendingToolCall,
   StepContext,
   ToolDescription,
   TraceSink,
 } from "../contracts/index.js";
 import { KrinoConfigurationError } from "../contracts/index.js";
+import { countSentCharacters } from "./context-budget.js";
 import { createKrino, createKrinoRuntime, type RuntimeDependencies } from "./create-krino.js";
 import {
   aiSdkRunStart,
@@ -22,8 +24,30 @@ import {
   stepTraceInput,
   TEST_DECISION_MODEL_VERSION,
 } from "./local-test-doubles.js";
+import { buildRiskQuestion } from "./risk-gate-policy.js";
+import { buildToolSelectionQuestions } from "./tool-selection.js";
 
 const FIVE_SECONDS = 5_000;
+
+/** Prices the local test provider by its name, for requests that get no answer. */
+const LOCAL_TEST_PROVIDER_PRICE: ModelPrice = {
+  modelIdentifier: "local-test",
+  inputPricePerMillionTokens: 1,
+  outputPricePerMillionTokens: 2,
+  cacheWriteMultiplier: 1,
+  cacheReadMultiplier: 1,
+  verifiedOn: "2026-10-02",
+};
+
+/** Prices the local test provider's answers by their model version. */
+const TEST_MODEL_PRICE: ModelPrice = {
+  modelIdentifier: TEST_DECISION_MODEL_VERSION,
+  inputPricePerMillionTokens: 3,
+  outputPricePerMillionTokens: 15,
+  cacheWriteMultiplier: 1,
+  cacheReadMultiplier: 1,
+  verifiedOn: "2026-10-02",
+};
 const START_TIME = new Date("2026-10-02T09:00:00.000Z");
 
 const availableTools: Array<ToolDescription> = [
@@ -773,6 +797,7 @@ describe("risk gate (fails closed, always shadow in v0.1)", () => {
               riskGatePolicy: { ...riskGatePolicy, allowThresholdByToolName: { sendEmail: 0 } },
               decisionProvider: createLocalTestProvider(providerBehavior),
               traceSink,
+              priceOverrides: [LOCAL_TEST_PROVIDER_PRICE],
             },
             { warn: () => {}, flushTimeoutInMilliseconds: 1_000 },
           );
@@ -782,15 +807,21 @@ describe("risk gate (fails closed, always shadow in v0.1)", () => {
             stepTraceInput({ stepNumber: 1, decisions: [outcome.decisionRecord] }),
           );
           await runHandle.finishRun(runSummaryInput());
-          const recordedSuggestions = traceSink
+          const recordedDecisions = traceSink
             .stepTraces()
-            .flatMap((stepTrace) =>
-              stepTrace.decisions.map((decision) => decision.suggestedChoice),
-            );
+            .flatMap((stepTrace) => stepTrace.decisions);
+          const recordedSuggestions = recordedDecisions.map((decision) => decision.suggestedChoice);
+          // Estimated decision costs are never negative and never NaN.
+          const costsAreValid = recordedDecisions.every(
+            (decision) =>
+              decision.decisionCostInUsd === null ||
+              (decision.decisionCostInUsd >= 0 && !Number.isNaN(decision.decisionCostInUsd)),
+          );
           return (
             outcome.suggestedVerdict !== "allow" &&
             outcome.verdictToApply === null &&
-            !recordedSuggestions.includes("allow")
+            !recordedSuggestions.includes("allow") &&
+            costsAreValid
           );
         },
       ),
@@ -1120,4 +1151,207 @@ describe("createKrino", () => {
     expect(firstRun.runIdentifier).not.toBe(secondRun.runIdentifier);
     consoleWarn.mockRestore();
   });
+});
+
+describe("decisionCostInUsd (estimated in v0.1)", () => {
+  const sentToolSelectionCharacters = (): number =>
+    countSentCharacters(stepContext(), buildToolSelectionQuestions(availableTools));
+
+  it("answered: (characters sent ÷ 4) × input price + (answer characters ÷ 4) × output price, priced by the answer's model", async () => {
+    const decisionProvider = createLocalTestProvider(answerToolsNeeded(["search"], 0.95));
+    const { krinoRuntime, traceSink } = createTestRuntime({
+      decisionProvider,
+      configFields: { priceOverrides: [TEST_MODEL_PRICE, LOCAL_TEST_PROVIDER_PRICE] },
+    });
+    const runHandle = krinoRuntime.startRun(aiSdkRunStart());
+    const outcome = await runHandle.decideToolSelection(stepContext());
+    runHandle.recordStep(stepTraceInput({ decisions: [outcome.decisionRecord] }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Answers: "yes", "no", "no" = 8 characters = 2 tokens.
+    const inputTokens = Math.ceil(sentToolSelectionCharacters() / 4);
+    const expectedCost = (inputTokens * 3 + 2 * 15) / 1_000_000;
+    expect(onlyStepDecision(traceSink)?.decisionCostInUsd).toBeCloseTo(expectedCost, 15);
+    // The characters priced are the characters the provider received.
+    const [providerCall] = decisionProvider.recordedCalls;
+    expect(providerCall).toBeDefined();
+    if (providerCall !== undefined) {
+      expect(countSentCharacters(providerCall.stepContext, providerCall.decisionQuestions)).toBe(
+        sentToolSelectionCharacters(),
+      );
+    }
+  });
+
+  it("uses the price table: a Jev answer costs input only", async () => {
+    const decisionProvider = createLocalTestProvider({
+      behaviorKind: "answer",
+      answerQuestions: (decisionQuestions) =>
+        decisionQuestions.map(() => ({
+          choice: "yes",
+          probability: 1,
+          decisionModelVersion: "typesafe-ai/jev",
+          latencyInMilliseconds: 1,
+        })),
+    });
+    const { krinoRuntime, traceSink } = createTestRuntime({ decisionProvider });
+    const runHandle = krinoRuntime.startRun(aiSdkRunStart());
+    const outcome = await runHandle.decideToolSelection(stepContext());
+    runHandle.recordStep(stepTraceInput({ decisions: [outcome.decisionRecord] }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    const expectedCost = (Math.ceil(sentToolSelectionCharacters() / 4) * 0.042) / 1_000_000;
+    expect(onlyStepDecision(traceSink)?.decisionCostInUsd).toBeCloseTo(expectedCost, 15);
+  });
+
+  it.each([
+    {
+      situation: "timedOut",
+      decisionProvider: () => createLocalTestProvider(answerEveryQuestion("yes", 1), FIVE_SECONDS),
+      advanceInMilliseconds: 800,
+      finishFirst: false,
+    },
+    {
+      situation: "failed",
+      decisionProvider: () =>
+        createLocalTestProvider({ behaviorKind: "reject", rejectionCause: new Error("boom") }),
+      advanceInMilliseconds: 0,
+      finishFirst: false,
+    },
+    {
+      situation: "cutOff",
+      decisionProvider: () => createLocalTestProvider(answerEveryQuestion("yes", 1), FIVE_SECONDS),
+      advanceInMilliseconds: 2_000,
+      finishFirst: true,
+    },
+  ])(
+    "$situation: the request was sent, so input is counted at the provider's price",
+    async ({ decisionProvider, advanceInMilliseconds, finishFirst, situation }) => {
+      const { krinoRuntime, traceSink } = createTestRuntime({
+        decisionProvider: decisionProvider(),
+        configFields: {
+          priceOverrides: [LOCAL_TEST_PROVIDER_PRICE],
+          decisionTimeoutInMilliseconds: finishFirst ? 10_000 : 800,
+        },
+      });
+      const runHandle = krinoRuntime.startRun(aiSdkRunStart());
+      const outcome = await runHandle.decideToolSelection(stepContext());
+      runHandle.recordStep(stepTraceInput({ decisions: [outcome.decisionRecord] }));
+      const finishPromise = finishFirst ? runHandle.finishRun(runSummaryInput()) : null;
+      await vi.advanceTimersByTimeAsync(advanceInMilliseconds);
+      await finishPromise;
+
+      const expectedCost = Math.ceil(sentToolSelectionCharacters() / 4) / 1_000_000;
+      expect(onlyStepDecision(traceSink)).toMatchObject({ decisionStatus: situation });
+      expect(onlyStepDecision(traceSink)?.decisionCostInUsd).toBeCloseTo(expectedCost, 15);
+    },
+  );
+
+  it("risk gate: priced on the risk question it sent", async () => {
+    const decisionProvider = createLocalTestProvider(answerEveryQuestion("yes", 0.95));
+    const { krinoRuntime, traceSink } = createTestRuntime({
+      decisionProvider,
+      configFields: { priceOverrides: [TEST_MODEL_PRICE] },
+    });
+    const runHandle = krinoRuntime.startRun(aiSdkRunStart());
+    const outcome = await runHandle.checkToolCallRisk(toolCall("sendEmail"));
+    runHandle.recordStep(stepTraceInput({ stepNumber: 1, decisions: [outcome.decisionRecord] }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    // No tool selection ran, so the context has no task and no tools: only the question.
+    const sentCharacters = buildRiskQuestion(toolCall("sendEmail")).questionText.length;
+    const expectedCost = (Math.ceil(sentCharacters / 4) * 3 + 1 * 15) / 1_000_000;
+    expect(onlyStepDecision(traceSink)?.decisionCostInUsd).toBeCloseTo(expectedCost, 15);
+  });
+
+  it("is null when neither the model nor the provider has a price", async () => {
+    const decisionProvider = createLocalTestProvider(answerEveryQuestion("yes", 1));
+    const { krinoRuntime, traceSink } = createTestRuntime({ decisionProvider });
+    const runHandle = krinoRuntime.startRun(aiSdkRunStart());
+    const outcome = await runHandle.decideToolSelection(stepContext());
+    runHandle.recordStep(stepTraceInput({ decisions: [outcome.decisionRecord] }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onlyStepDecision(traceSink)?.decisionCostInUsd).toBeNull();
+  });
+
+  it("is null when no request was sent", async () => {
+    const decisionProvider = createLocalTestProvider(answerEveryQuestion("yes", 1));
+    const { krinoRuntime } = createTestRuntime({
+      decisionProvider,
+      configFields: { priceOverrides: [LOCAL_TEST_PROVIDER_PRICE] },
+    });
+    const runHandle = krinoRuntime.startRun(aiSdkRunStart());
+    const blocked = await runHandle.checkToolCallRisk(toolCall("deleteDatabase"));
+    const overBudget = await runHandle.decideToolSelection(
+      stepContext(0, { taskText: "t".repeat(200_000) }),
+    );
+    expect(decisionProvider.recordedCalls).toHaveLength(0);
+    expect(blocked.decisionRecord.decisionCostInUsd).toBeNull();
+    expect(overBudget.decisionRecord.decisionCostInUsd).toBeNull();
+  });
+});
+
+describe("unhandled rejections", () => {
+  it.each([
+    ["rejects", { behaviorKind: "reject", rejectionCause: new Error("provider down") }],
+    [
+      "throws synchronously",
+      { behaviorKind: "throwSynchronously", thrownCause: new Error("provider down") },
+    ],
+  ] as const)(
+    "100 shadow decisions with a provider that always %s: no unhandledRejection, host promises never reject",
+    async (_label, providerBehavior) => {
+      vi.useRealTimers();
+      const unhandledReasons: Array<unknown> = [];
+      const recordUnhandledRejection = (rejectionReason: unknown): void => {
+        unhandledReasons.push(rejectionReason);
+      };
+      process.on("unhandledRejection", recordUnhandledRejection);
+      try {
+        const traceSink = createRecordingTraceSink();
+        const krinoRuntime = createKrinoRuntime(
+          {
+            projectName: "unhandled-rejections",
+            decisionModes: { toolSelection: "shadow", riskGate: "shadow" },
+            riskGatePolicy,
+            decisionProvider: createLocalTestProvider(providerBehavior),
+            traceSink,
+          },
+          { warn: () => {} },
+        );
+        const runHandle = krinoRuntime.startRun(aiSdkRunStart());
+
+        const hostPromises: Array<Promise<unknown>> = [];
+        for (let decisionIndex = 0; decisionIndex < 100; decisionIndex += 1) {
+          const toolSelection = runHandle.decideToolSelection(stepContext(decisionIndex));
+          const riskCheck = runHandle.checkToolCallRisk(toolCall("sendEmail", {}, decisionIndex));
+          hostPromises.push(toolSelection, riskCheck);
+          const [toolOutcome, riskOutcome] = await Promise.all([toolSelection, riskCheck]);
+          runHandle.recordStep(
+            stepTraceInput({
+              stepNumber: decisionIndex,
+              decisions: [toolOutcome.decisionRecord, riskOutcome.decisionRecord],
+            }),
+          );
+        }
+        hostPromises.push(runHandle.finishRun(runSummaryInput()), krinoRuntime.flushAll(100));
+
+        const settledResults = await Promise.allSettled(hostPromises);
+        // Give Node a few turns of the event loop to report any unhandled rejection.
+        await new Promise((resolveWait) => setTimeout(resolveWait, 50));
+
+        expect(settledResults).toHaveLength(202);
+        expect(settledResults.every((settledResult) => settledResult.status === "fulfilled")).toBe(
+          true,
+        );
+        expect(unhandledReasons).toEqual([]);
+        const recordedStatuses = traceSink
+          .stepTraces()
+          .flatMap((stepTrace) => stepTrace.decisions.map((decision) => decision.decisionStatus));
+        expect(recordedStatuses).toHaveLength(200);
+        expect(recordedStatuses.every((decisionStatus) => decisionStatus === "failed")).toBe(true);
+      } finally {
+        process.off("unhandledRejection", recordUnhandledRejection);
+      }
+    },
+  );
 });
