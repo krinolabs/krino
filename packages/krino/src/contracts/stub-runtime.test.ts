@@ -118,7 +118,7 @@ describe("createStubKrino", () => {
         suggestedChoice: null,
         appliedChoice: "deleteFile,readFile,search",
         probability: null,
-        decisionModelVersion: null,
+        decisionModelVersion: "stub",
         latencyInMilliseconds: null,
         decisionCostInUsd: null,
       });
@@ -154,6 +154,8 @@ describe("createStubKrino", () => {
       expect(outcome.suggestedVerdict).toBe("askHuman");
       expect(outcome.suggestedVerdict).not.toBe("allow");
       expect(outcome.decisionRecord).toEqual(createStubDecisionRecord("riskGate", null));
+      expect(outcome.decisionRecord.decisionStatus).toBe("skippedUnsupported");
+      expect(outcome.decisionRecord.decisionModelVersion).toBe("stub");
       expect(outcome.decisionRecord.decisionMode).toBe("shadow");
       expect(stubRuntime.riskGateRequests).toEqual([pendingToolCall]);
     });

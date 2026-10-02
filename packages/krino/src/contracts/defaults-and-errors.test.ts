@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_CACHE_READ_MULTIPLIER,
   DEFAULT_CACHE_WRITE_MULTIPLIER,
+  DEFAULT_CONTEXT_SAFETY_MARGIN_RATIO,
+  DEFAULT_DECISION_CONTEXT_BUDGET_IN_TOKENS,
+  DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS,
   DecisionProviderError,
   DecisionTimeoutError,
   KRINO_CONFIG_DEFAULTS,
@@ -30,6 +33,25 @@ describe("cache multiplier defaults", () => {
   it("match the ModelPrice comments", () => {
     expect(DEFAULT_CACHE_WRITE_MULTIPLIER).toBe(1.25);
     expect(DEFAULT_CACHE_READ_MULTIPLIER).toBe(0.1);
+  });
+});
+
+describe("runtime limit defaults", () => {
+  it("flush waits 2 s for pending decisions", () => {
+    expect(DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS).toBe(2000);
+  });
+
+  it("decision context budget is 32,000 tokens with a 10% safety margin", () => {
+    expect(DEFAULT_DECISION_CONTEXT_BUDGET_IN_TOKENS).toBe(32000);
+    expect(DEFAULT_CONTEXT_SAFETY_MARGIN_RATIO).toBe(0.1);
+  });
+
+  it("margin ratio leaves a usable budget", () => {
+    expect(DEFAULT_CONTEXT_SAFETY_MARGIN_RATIO).toBeGreaterThan(0);
+    expect(DEFAULT_CONTEXT_SAFETY_MARGIN_RATIO).toBeLessThan(1);
+    expect(
+      DEFAULT_DECISION_CONTEXT_BUDGET_IN_TOKENS * (1 - DEFAULT_CONTEXT_SAFETY_MARGIN_RATIO),
+    ).toBe(28800);
   });
 });
 

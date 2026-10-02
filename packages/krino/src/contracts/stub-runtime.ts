@@ -40,7 +40,10 @@ export function encodeToolNameChoice(toolNames: ReadonlyArray<string>): string {
   return [...toolNames].sort().join(",");
 }
 
-/** The stub makes no decision, so it records one as `skippedUnsupported` with no suggestion. */
+/**
+ * The stub makes no decision, so it records one as `skippedUnsupported` with no suggestion.
+ * `decisionModelVersion` is `"stub"` so stub records are easy to spot in traces.
+ */
 export function createStubDecisionRecord(
   decisionKind: DecisionKind,
   appliedChoice: string | null,
@@ -52,7 +55,7 @@ export function createStubDecisionRecord(
     suggestedChoice: null,
     appliedChoice,
     probability: null,
-    decisionModelVersion: null,
+    decisionModelVersion: "stub",
     latencyInMilliseconds: null,
     decisionCostInUsd: null,
   };

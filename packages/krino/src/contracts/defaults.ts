@@ -22,3 +22,12 @@ export const DEFAULT_CACHE_WRITE_MULTIPLIER = 1.25;
 
 /** `ModelPrice.cacheReadMultiplier`. */
 export const DEFAULT_CACHE_READ_MULTIPLIER = 0.1;
+
+/** How long `finishRun` and `flushAll` wait for pending decisions before writing `cutOff`. */
+export const DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS = 2000;
+
+/** Token budget for the context sent to a decision provider. */
+export const DEFAULT_DECISION_CONTEXT_BUDGET_IN_TOKENS = 32000;
+
+/** Share of the context budget kept free, because tokens are estimated as characters ÷ 4. */
+export const DEFAULT_CONTEXT_SAFETY_MARGIN_RATIO = 0.1;

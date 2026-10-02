@@ -39,6 +39,9 @@ import type {
 import {
   type DEFAULT_CACHE_READ_MULTIPLIER,
   type DEFAULT_CACHE_WRITE_MULTIPLIER,
+  type DEFAULT_CONTEXT_SAFETY_MARGIN_RATIO,
+  type DEFAULT_DECISION_CONTEXT_BUDGET_IN_TOKENS,
+  type DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS,
   DecisionProviderError,
   DecisionTimeoutError,
   KRINO_CONFIG_DEFAULTS,
@@ -398,6 +401,12 @@ describe("defaults.ts values", () => {
   it("cache multipliers are number literals", () => {
     expectTypeOf<typeof DEFAULT_CACHE_WRITE_MULTIPLIER>().toEqualTypeOf<1.25>();
     expectTypeOf<typeof DEFAULT_CACHE_READ_MULTIPLIER>().toEqualTypeOf<0.1>();
+  });
+
+  it("runtime limits are number literals", () => {
+    expectTypeOf<typeof DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS>().toEqualTypeOf<2000>();
+    expectTypeOf<typeof DEFAULT_DECISION_CONTEXT_BUDGET_IN_TOKENS>().toEqualTypeOf<32000>();
+    expectTypeOf<typeof DEFAULT_CONTEXT_SAFETY_MARGIN_RATIO>().toEqualTypeOf<0.1>();
   });
 });
 
