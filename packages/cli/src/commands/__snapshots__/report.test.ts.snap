@@ -1,0 +1,440 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad lines) > prints the JSON report for every project 1`] = `
+{
+  "assumptions": {
+    "modelPrices": [
+      {
+        "modelIdentifier": "claude-haiku-4-5",
+        "verifiedOn": "2026-10-02",
+      },
+      {
+        "modelIdentifier": "claude-sonnet-5-5",
+        "verifiedOn": "2026-10-02",
+      },
+    ],
+    "tokensPerToolDefinition": 150,
+  },
+  "cacheHealth": {
+    "byHost": [
+      {
+        "cacheReadShare": 0.317073,
+        "cacheReadTokens": 10400,
+        "cacheWriteShare": 0.471037,
+        "cacheWriteTokens": 15450,
+        "hostName": "ai-sdk",
+        "totalInputTokens": 32800,
+        "uncachedShare": 0.21189,
+        "uncachedTokens": 6950,
+      },
+      {
+        "cacheReadShare": 0.692641,
+        "cacheReadTokens": 32000,
+        "cacheWriteShare": 0.281385,
+        "cacheWriteTokens": 13000,
+        "hostName": "claude-agent-sdk",
+        "totalInputTokens": 46200,
+        "uncachedShare": 0.025974,
+        "uncachedTokens": 1200,
+      },
+    ],
+    "overall": {
+      "cacheReadShare": 0.536709,
+      "cacheReadTokens": 42400,
+      "cacheWriteShare": 0.360127,
+      "cacheWriteTokens": 28450,
+      "totalInputTokens": 79000,
+      "uncachedShare": 0.103165,
+      "uncachedTokens": 8150,
+    },
+  },
+  "cutOffs": {
+    "callCount": 13,
+    "cutOffCount": 2,
+    "cutOffShare": 0.153846,
+  },
+  "decisions": [
+    {
+      "addedLatencyInMilliseconds": {
+        "p50": 0,
+        "p95": 0,
+      },
+      "agreementByHost": [
+        {
+          "agreeingCount": 4,
+          "agreementRate": 0.8,
+          "comparedCount": 5,
+          "hostName": "ai-sdk",
+          "metric": "stepToolsInSuggestedSet",
+          "metricLabel": "steps whose called tools were all in the suggested set",
+        },
+        {
+          "agreeingCount": 1,
+          "agreementRate": 0.5,
+          "comparedCount": 2,
+          "hostName": "claude-agent-sdk",
+          "metric": "runToolsInSuggestedSet",
+          "metricLabel": "runs whose used tools were all in the suggested set",
+        },
+      ],
+      "callCount": 7,
+      "costSavedIfEnforced": {
+        "decisionCostInUsd": 0.0016,
+        "estimateKind": "estimated",
+        "grossSavingInUsd": 0.004179624,
+        "netSavingInUsd": 0.002579624,
+        "suggestionRunCount": 5,
+        "unpricedModelIdentifiers": [],
+      },
+      "decisionCostInUsd": 0.0016,
+      "decisionKind": "toolSelection",
+      "decisionLatencyInMilliseconds": {
+        "p50": 235,
+        "p95": 402.5,
+      },
+      "decisionMode": "shadow",
+      "statusCounts": {
+        "answered": 5,
+        "cutOff": 1,
+        "failed": 1,
+        "skippedExploration": 0,
+        "skippedUnsupported": 0,
+        "timedOut": 0,
+      },
+    },
+    {
+      "addedLatencyInMilliseconds": {
+        "p50": 150,
+        "p95": 285,
+      },
+      "agreementByHost": [
+        {
+          "agreeingCount": 0,
+          "agreementRate": 0,
+          "comparedCount": 1,
+          "hostName": "ai-sdk",
+          "metric": "stepToolsInSuggestedSet",
+          "metricLabel": "steps whose called tools were all in the suggested set",
+        },
+      ],
+      "callCount": 2,
+      "costSavedIfEnforced": {
+        "decisionCostInUsd": 0.0006,
+        "estimateKind": "estimated",
+        "grossSavingInUsd": 0.000944656,
+        "netSavingInUsd": 0.000344656,
+        "suggestionRunCount": 2,
+        "unpricedModelIdentifiers": [],
+      },
+      "decisionCostInUsd": 0.0006,
+      "decisionKind": "toolSelection",
+      "decisionLatencyInMilliseconds": {
+        "p50": 290,
+        "p95": 299,
+      },
+      "decisionMode": "enforce",
+      "statusCounts": {
+        "answered": 1,
+        "cutOff": 0,
+        "failed": 0,
+        "skippedExploration": 1,
+        "skippedUnsupported": 0,
+        "timedOut": 0,
+      },
+    },
+    {
+      "addedLatencyInMilliseconds": {
+        "p50": 0,
+        "p95": 0,
+      },
+      "agreementByHost": [],
+      "callCount": 4,
+      "costSavedIfEnforced": {
+        "estimateKind": "notApplicable",
+        "reason": "The risk gate saves review time, not tokens, and runs in shadow mode only in v0.1.",
+      },
+      "decisionCostInUsd": 0.0004,
+      "decisionKind": "riskGate",
+      "decisionLatencyInMilliseconds": {
+        "p50": 240,
+        "p95": 744,
+      },
+      "decisionMode": "shadow",
+      "statusCounts": {
+        "answered": 2,
+        "cutOff": 1,
+        "failed": 0,
+        "skippedExploration": 0,
+        "skippedUnsupported": 0,
+        "timedOut": 1,
+      },
+    },
+  ],
+  "filters": {
+    "projectName": null,
+    "since": "2026-09-25T12:00:00.000Z",
+    "traceDirectory": "<home>/.krino/traces",
+    "traceFileCount": 3,
+  },
+  "generatedAt": "2026-10-02T12:00:00.000Z",
+  "lines": {
+    "invalidJsonLineCount": 1,
+    "invalidShapeLineCount": 2,
+    "readLineCount": 28,
+    "skippedLineCount": 5,
+    "unsupportedSchemaVersionLineCount": 2,
+    "validLineCount": 23,
+  },
+  "nextStep": "15% of decisions were cut off: await finishRun (or flushAll) before the process exits.",
+  "records": {
+    "agentStepCount": 15,
+    "projectNames": [
+      "fixture-project",
+      "other-project",
+    ],
+    "runCount": 9,
+    "runSummaryCount": 8,
+  },
+  "reportSchemaVersion": 1,
+}
+`;
+
+exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad lines) > prints the JSON report for one project 1`] = `
+{
+  "assumptions": {
+    "modelPrices": [
+      {
+        "modelIdentifier": "claude-haiku-4-5",
+        "verifiedOn": "2026-10-02",
+      },
+      {
+        "modelIdentifier": "claude-sonnet-5-5",
+        "verifiedOn": "2026-10-02",
+      },
+    ],
+    "tokensPerToolDefinition": 150,
+  },
+  "cacheHealth": {
+    "byHost": [
+      {
+        "cacheReadShare": 0.346667,
+        "cacheReadTokens": 10400,
+        "cacheWriteShare": 0.448333,
+        "cacheWriteTokens": 13450,
+        "hostName": "ai-sdk",
+        "totalInputTokens": 30000,
+        "uncachedShare": 0.205,
+        "uncachedTokens": 6150,
+      },
+      {
+        "cacheReadShare": 0.692641,
+        "cacheReadTokens": 32000,
+        "cacheWriteShare": 0.281385,
+        "cacheWriteTokens": 13000,
+        "hostName": "claude-agent-sdk",
+        "totalInputTokens": 46200,
+        "uncachedShare": 0.025974,
+        "uncachedTokens": 1200,
+      },
+    ],
+    "overall": {
+      "cacheReadShare": 0.55643,
+      "cacheReadTokens": 42400,
+      "cacheWriteShare": 0.347113,
+      "cacheWriteTokens": 26450,
+      "totalInputTokens": 76200,
+      "uncachedShare": 0.096457,
+      "uncachedTokens": 7350,
+    },
+  },
+  "cutOffs": {
+    "callCount": 12,
+    "cutOffCount": 2,
+    "cutOffShare": 0.166667,
+  },
+  "decisions": [
+    {
+      "addedLatencyInMilliseconds": {
+        "p50": 0,
+        "p95": 0,
+      },
+      "agreementByHost": [
+        {
+          "agreeingCount": 3,
+          "agreementRate": 0.75,
+          "comparedCount": 4,
+          "hostName": "ai-sdk",
+          "metric": "stepToolsInSuggestedSet",
+          "metricLabel": "steps whose called tools were all in the suggested set",
+        },
+        {
+          "agreeingCount": 1,
+          "agreementRate": 0.5,
+          "comparedCount": 2,
+          "hostName": "claude-agent-sdk",
+          "metric": "runToolsInSuggestedSet",
+          "metricLabel": "runs whose used tools were all in the suggested set",
+        },
+      ],
+      "callCount": 6,
+      "costSavedIfEnforced": {
+        "decisionCostInUsd": 0.0013,
+        "estimateKind": "estimated",
+        "grossSavingInUsd": 0.003649267,
+        "netSavingInUsd": 0.002349267,
+        "suggestionRunCount": 4,
+        "unpricedModelIdentifiers": [],
+      },
+      "decisionCostInUsd": 0.0013,
+      "decisionKind": "toolSelection",
+      "decisionLatencyInMilliseconds": {
+        "p50": 260,
+        "p95": 406,
+      },
+      "decisionMode": "shadow",
+      "statusCounts": {
+        "answered": 4,
+        "cutOff": 1,
+        "failed": 1,
+        "skippedExploration": 0,
+        "skippedUnsupported": 0,
+        "timedOut": 0,
+      },
+    },
+    {
+      "addedLatencyInMilliseconds": {
+        "p50": 150,
+        "p95": 285,
+      },
+      "agreementByHost": [
+        {
+          "agreeingCount": 0,
+          "agreementRate": 0,
+          "comparedCount": 1,
+          "hostName": "ai-sdk",
+          "metric": "stepToolsInSuggestedSet",
+          "metricLabel": "steps whose called tools were all in the suggested set",
+        },
+      ],
+      "callCount": 2,
+      "costSavedIfEnforced": {
+        "decisionCostInUsd": 0.0006,
+        "estimateKind": "estimated",
+        "grossSavingInUsd": 0.000944656,
+        "netSavingInUsd": 0.000344656,
+        "suggestionRunCount": 2,
+        "unpricedModelIdentifiers": [],
+      },
+      "decisionCostInUsd": 0.0006,
+      "decisionKind": "toolSelection",
+      "decisionLatencyInMilliseconds": {
+        "p50": 290,
+        "p95": 299,
+      },
+      "decisionMode": "enforce",
+      "statusCounts": {
+        "answered": 1,
+        "cutOff": 0,
+        "failed": 0,
+        "skippedExploration": 1,
+        "skippedUnsupported": 0,
+        "timedOut": 0,
+      },
+    },
+    {
+      "addedLatencyInMilliseconds": {
+        "p50": 0,
+        "p95": 0,
+      },
+      "agreementByHost": [],
+      "callCount": 4,
+      "costSavedIfEnforced": {
+        "estimateKind": "notApplicable",
+        "reason": "The risk gate saves review time, not tokens, and runs in shadow mode only in v0.1.",
+      },
+      "decisionCostInUsd": 0.0004,
+      "decisionKind": "riskGate",
+      "decisionLatencyInMilliseconds": {
+        "p50": 240,
+        "p95": 744,
+      },
+      "decisionMode": "shadow",
+      "statusCounts": {
+        "answered": 2,
+        "cutOff": 1,
+        "failed": 0,
+        "skippedExploration": 0,
+        "skippedUnsupported": 0,
+        "timedOut": 1,
+      },
+    },
+  ],
+  "filters": {
+    "projectName": "fixture-project",
+    "since": "2026-09-25T12:00:00.000Z",
+    "traceDirectory": "<home>/.krino/traces/fixture-project",
+    "traceFileCount": 2,
+  },
+  "generatedAt": "2026-10-02T12:00:00.000Z",
+  "lines": {
+    "invalidJsonLineCount": 1,
+    "invalidShapeLineCount": 2,
+    "readLineCount": 26,
+    "skippedLineCount": 5,
+    "unsupportedSchemaVersionLineCount": 2,
+    "validLineCount": 21,
+  },
+  "nextStep": "17% of decisions were cut off: await finishRun (or flushAll) before the process exits.",
+  "records": {
+    "agentStepCount": 14,
+    "projectNames": [
+      "fixture-project",
+    ],
+    "runCount": 8,
+    "runSummaryCount": 7,
+  },
+  "reportSchemaVersion": 1,
+}
+`;
+
+exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad lines) > prints the text report for every project 1`] = `
+"krino report
+Project: all (fixture-project, other-project) · since 2026-09-25T12:00:00.000Z
+Traces: <home>/.krino/traces (3 files) · 28 lines read, 5 skipped (1 invalid JSON, 2 unsupported schema version, 2 invalid shape)
+Records: 15 steps, 8 run summaries, 9 runs
+
+Tool selection · shadow
+  Calls              7 (answered 5, failed 1, cut off 1)
+  Agreement          ai-sdk            80.0% (4/5 steps whose called tools were all in the suggested set)
+                     claude-agent-sdk  50.0% (1/2 runs whose used tools were all in the suggested set)
+  Saved if enforced  $0.0026 net ($0.0042 input incl. cache − $0.0016 decisions, 5 runs; estimate)
+  Added latency      p50 0 ms · p95 0 ms
+  Decision latency   p50 235 ms · p95 403 ms
+
+Tool selection · enforce
+  Calls              2 (answered 1, exploration 1)
+  Agreement          ai-sdk            0.0% (0/1 steps whose called tools were all in the suggested set)
+                     measured on exploration runs only
+  Saved if enforced  $0.0003 net ($0.0009 input incl. cache − $0.0006 decisions, 2 runs; estimate)
+  Added latency      p50 150 ms · p95 285 ms
+  Decision latency   p50 290 ms · p95 299 ms
+
+Risk gate · shadow
+  Calls              4 (answered 2, timed out 1, cut off 1)
+  Agreement          n/a: traces do not record the host's verdict
+  Saved if enforced  n/a. The risk gate saves review time, not tokens, and runs in shadow mode only in v0.1.
+  Decision cost      $0.0004
+  Added latency      p50 0 ms · p95 0 ms
+  Decision latency   p50 240 ms · p95 744 ms
+
+Cache health (input tokens)
+  all hosts          read 53.7% · written 36.0% · uncached 10.3% (79,000 tokens)
+  ai-sdk             read 31.7% · written 47.1% · uncached 21.2% (32,800 tokens)
+  claude-agent-sdk   read 69.3% · written 28.1% · uncached 2.6% (46,200 tokens)
+
+Cut-offs: 2 of 13 calls (15.4%)
+
+Next step: 15% of decisions were cut off: await finishRun (or flushAll) before the process exits.
+Savings assume 150 tokens per tool definition; prices verified on: claude-haiku-4-5 2026-10-02, claude-sonnet-5-5 2026-10-02.
+"
+`;

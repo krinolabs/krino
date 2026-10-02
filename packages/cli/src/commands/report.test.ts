@@ -1,0 +1,333 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import nodePath from "node:path";
+import { fileURLToPath } from "node:url";
+import { DEFAULT_MODEL_PRICES } from "@krinolabs/krino";
+import { afterAll, describe, expect, it } from "vitest";
+import type { KrinoReport } from "../report/report-types.js";
+import {
+  createReport,
+  DEFAULT_TOKENS_PER_TOOL_DEFINITION,
+  type ReportDependencies,
+  type ReportOptions,
+  runReport,
+} from "./report.js";
+
+const FIXTURE_HOME = fileURLToPath(new URL("../report/fixtures/home", import.meta.url));
+const FIXTURE_NOW = new Date("2026-10-02T12:00:00.000Z");
+const ANSI_ESCAPE = "\u001b[";
+
+function fixtureDependencies(overrides: Partial<ReportDependencies> = {}): ReportDependencies {
+  return {
+    environment: {},
+    homeDirectory: () => FIXTURE_HOME,
+    workingDirectory: () => FIXTURE_HOME,
+    now: () => FIXTURE_NOW,
+    modelPrices: DEFAULT_MODEL_PRICES,
+    tokensPerToolDefinition: DEFAULT_TOKENS_PER_TOOL_DEFINITION,
+    ...overrides,
+  };
+}
+
+/** Fixture paths differ per machine; snapshots use `<home>` and forward slashes. */
+function portablePath(text: string): string {
+  return text.replaceAll(FIXTURE_HOME, "<home>").replaceAll("\\", "/");
+}
+
+type CapturedRun = { exitCode: number; output: string; errorOutput: string };
+
+async function runCaptured(
+  reportOptions: ReportOptions & { json: boolean },
+  options: { isTerminal?: boolean; dependencies?: Partial<ReportDependencies> } = {},
+): Promise<CapturedRun> {
+  let output = "";
+  let errorOutput = "";
+  const exitCode = await runReport(
+    reportOptions,
+    {
+      writeOutput: (text) => {
+        output += text;
+      },
+      writeError: (text) => {
+        errorOutput += text;
+      },
+      isTerminal: options.isTerminal,
+    },
+    fixtureDependencies(options.dependencies),
+  );
+  return { exitCode, output, errorOutput };
+}
+
+async function reportFor(
+  reportOptions: ReportOptions,
+  dependencyOverrides: Partial<ReportDependencies> = {},
+): Promise<KrinoReport> {
+  const reportResult = await createReport(reportOptions, fixtureDependencies(dependencyOverrides));
+  if (reportResult.resultKind !== "report") {
+    throw new Error(`expected a report, got: ${reportResult.message}`);
+  }
+  return {
+    ...reportResult.report,
+    filters: {
+      ...reportResult.report.filters,
+      traceDirectory: portablePath(reportResult.report.filters.traceDirectory),
+    },
+  };
+}
+
+const temporaryFolders: Array<string> = [];
+
+function temporaryTraceFolder(fileContents: Record<string, string>): string {
+  const folderPath = mkdtempSync(nodePath.join(tmpdir(), "krino-report-test-"));
+  temporaryFolders.push(folderPath);
+  for (const [fileName, fileContent] of Object.entries(fileContents)) {
+    writeFileSync(nodePath.join(folderPath, fileName), fileContent);
+  }
+  return folderPath;
+}
+
+afterAll(() => {
+  for (const folderPath of temporaryFolders) {
+    rmSync(folderPath, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
+describe("krino report on the fixture trace folders (both hosts, cut-offs, bad lines)", () => {
+  it("prints the text report for every project", async () => {
+    const capturedRun = await runCaptured({ projectName: null, sinceText: "7d", json: false });
+    expect(capturedRun.exitCode).toBe(0);
+    expect(capturedRun.errorOutput).toBe("");
+    expect(portablePath(capturedRun.output)).toMatchSnapshot();
+  });
+
+  it("prints the JSON report for every project", async () => {
+    const capturedRun = await runCaptured({ projectName: null, sinceText: "7d", json: true });
+    expect(capturedRun.exitCode).toBe(0);
+    const report = JSON.parse(capturedRun.output) as KrinoReport;
+    report.filters.traceDirectory = portablePath(report.filters.traceDirectory);
+    expect(report).toMatchSnapshot();
+  });
+
+  it("prints the JSON report for one project", async () => {
+    const report = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
+    expect(report).toMatchSnapshot();
+    expect(report.records.projectNames).toEqual(["fixture-project"]);
+    expect(report.filters.traceDirectory).toBe("<home>/.krino/traces/fixture-project");
+  });
+
+  it("skips and counts every bad line by reason", async () => {
+    const report = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
+    expect(report.lines).toEqual({
+      readLineCount: 26,
+      validLineCount: 21,
+      skippedLineCount: 5,
+      invalidJsonLineCount: 1,
+      unsupportedSchemaVersionLineCount: 2,
+      invalidShapeLineCount: 2,
+    });
+  });
+
+  it("labels agreement per host with that host's metric", async () => {
+    const report = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
+    const shadowToolSelection = report.decisions.find(
+      (decisionReport) =>
+        decisionReport.decisionKind === "toolSelection" && decisionReport.decisionMode === "shadow",
+    );
+    expect(
+      shadowToolSelection?.agreementByHost.map((hostAgreement) => [
+        hostAgreement.hostName,
+        hostAgreement.metric,
+        hostAgreement.agreeingCount,
+        hostAgreement.comparedCount,
+      ]),
+    ).toEqual([
+      ["ai-sdk", "stepToolsInSuggestedSet", 3, 4],
+      ["claude-agent-sdk", "runToolsInSuggestedSet", 1, 2],
+    ]);
+  });
+
+  it("counts cut-offs across decision kinds", async () => {
+    const report = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
+    expect(report.cutOffs).toEqual({ cutOffCount: 2, callCount: 12, cutOffShare: 0.166667 });
+    expect(report.nextStep).toContain("cut off");
+  });
+
+  it("prices the saving with cache read and write tokens", async () => {
+    const report = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
+    const shadowSaving = report.decisions.find(
+      (decisionReport) =>
+        decisionReport.decisionKind === "toolSelection" && decisionReport.decisionMode === "shadow",
+    )?.costSavedIfEnforced;
+    // Hand-computed from the fixtures: 4 runs, 150 tokens per removed tool, Haiku and Sonnet prices.
+    expect(shadowSaving).toMatchObject({
+      estimateKind: "estimated",
+      decisionCostInUsd: 0.0013,
+      suggestionRunCount: 4,
+    });
+    if (shadowSaving?.estimateKind !== "estimated" || shadowSaving.grossSavingInUsd === null) {
+      throw new Error("expected an estimated saving");
+    }
+    expect(shadowSaving.grossSavingInUsd).toBeCloseTo(0.00365, 5);
+  });
+
+  it("leaves out files and records from before --since", async () => {
+    const lastWeek = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
+    const lastTwoMonths = await reportFor({ projectName: "fixture-project", sinceText: "60d" });
+    expect(lastWeek.filters.traceFileCount).toBe(2);
+    expect(lastTwoMonths.filters.traceFileCount).toBe(3);
+    expect(lastTwoMonths.records.runCount).toBe(lastWeek.records.runCount + 1);
+    const sinceOctoberFirst = await reportFor({
+      projectName: "fixture-project",
+      sinceText: "2026-10-01",
+    });
+    expect(sinceOctoberFirst.records.agentStepCount).toBe(8);
+  });
+
+  it("reads $KRINO_TRACE_DIRECTORY and still filters by --project", async () => {
+    const environment = {
+      KRINO_TRACE_DIRECTORY: nodePath.join(FIXTURE_HOME, ".krino", "traces", "fixture-project"),
+    };
+    const sameProject = await reportFor(
+      { projectName: "fixture-project", sinceText: "7d" },
+      { environment },
+    );
+    const otherProject = await reportFor(
+      { projectName: "other-project", sinceText: "7d" },
+      { environment },
+    );
+    expect(sameProject.records.agentStepCount).toBe(14);
+    expect(otherProject.records.agentStepCount).toBe(0);
+    expect(otherProject.lines.readLineCount).toBe(26);
+    expect(otherProject.nextStep).toBe(
+      "No trace records match the filters: try a longer --since or check --project.",
+    );
+  });
+
+  it("reports an empty folder without failing", async () => {
+    const capturedRun = await runCaptured({
+      projectName: "never-ran",
+      sinceText: "7d",
+      json: true,
+    });
+    expect(capturedRun.exitCode).toBe(0);
+    const report = JSON.parse(capturedRun.output) as KrinoReport;
+    expect(report.lines.readLineCount).toBe(0);
+    expect(report.decisions).toEqual([]);
+    expect(report.nextStep).toMatch(/^No traces found in /);
+  });
+});
+
+describe("krino report options and failures", () => {
+  it("rejects a bad --since with exit code 1", async () => {
+    const capturedRun = await runCaptured({ projectName: null, sinceText: "soon", json: false });
+    expect(capturedRun.exitCode).toBe(1);
+    expect(capturedRun.output).toBe("");
+    expect(capturedRun.errorOutput).toContain('--since "soon"');
+  });
+
+  it("exits 1 with a message when the trace folder cannot be read", async () => {
+    const capturedRun = await runCaptured(
+      { projectName: "fixture-project", sinceText: "7d", json: false },
+      {
+        dependencies: {
+          listDirectory: async () => {
+            throw Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+          },
+        },
+      },
+    );
+    expect(capturedRun.exitCode).toBe(1);
+    expect(capturedRun.errorOutput).toMatch(/^krino report: could not read traces: /);
+  });
+});
+
+describe("banner and colors", () => {
+  const reportOptions = { projectName: "fixture-project", sinceText: "7d", json: false };
+
+  it("shows a colored banner at a terminal", async () => {
+    const capturedRun = await runCaptured(reportOptions, { isTerminal: true });
+    expect(capturedRun.output.startsWith(`${ANSI_ESCAPE}1m`)).toBe(true);
+    expect(capturedRun.output).toContain("krino");
+  });
+
+  it("shows the banner without colors when NO_COLOR is set", async () => {
+    const capturedRun = await runCaptured(reportOptions, {
+      isTerminal: true,
+      dependencies: { environment: { NO_COLOR: "1" } },
+    });
+    expect(capturedRun.output.startsWith("krino · ")).toBe(true);
+    expect(capturedRun.output).not.toContain(ANSI_ESCAPE);
+  });
+
+  it("prints no banner and no colors when stdout is not a terminal", async () => {
+    const capturedRun = await runCaptured(reportOptions, { isTerminal: false });
+    expect(capturedRun.output.startsWith("krino report\n")).toBe(true);
+    expect(capturedRun.output).not.toContain(ANSI_ESCAPE);
+  });
+
+  it("never prints the banner with --json", async () => {
+    const capturedRun = await runCaptured({ ...reportOptions, json: true }, { isTerminal: true });
+    expect(() => JSON.parse(capturedRun.output)).not.toThrow();
+  });
+});
+
+describe("external strings are never used as plain-object keys", () => {
+  it.each(["constructor", "toString", "__proto__"])(
+    "reads a trace whose names and statuses are %s",
+    async (externalName) => {
+      const traceLine = JSON.stringify({
+        traceSchemaVersion: 1,
+        recordType: "agentStep",
+        projectName: externalName,
+        runIdentifier: externalName,
+        stepNumber: 0,
+        hostName: externalName,
+        hostSdkVersion: "1.0.0",
+        modelIdentifier: externalName,
+        availableToolNames: [externalName, "search"],
+        chosenToolNames: [externalName],
+        tokenUsage: { inputTokens: 10, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        costInUsd: null,
+        latencyInMilliseconds: null,
+        recordedAt: "2026-10-01T10:00:00.000Z",
+        decisions: [
+          {
+            decisionKind: "toolSelection",
+            decisionMode: externalName,
+            decisionStatus: externalName,
+            suggestedChoice: externalName,
+            appliedChoice: null,
+            probability: null,
+            decisionModelVersion: null,
+            latencyInMilliseconds: 5,
+            decisionCostInUsd: 0.001,
+          },
+        ],
+        contentHash: null,
+      });
+      const traceFolder = temporaryTraceFolder({ "traces-2026-10-01.jsonl": `${traceLine}\n` });
+      const report = await reportFor(
+        { projectName: externalName, sinceText: "7d" },
+        { environment: { KRINO_TRACE_DIRECTORY: traceFolder } },
+      );
+      expect(report.records.projectNames).toEqual([externalName]);
+      expect(report.decisions).toHaveLength(1);
+      expect(report.decisions[0]).toMatchObject({
+        decisionMode: externalName,
+        callCount: 1,
+        statusCounts: {
+          answered: 0,
+          timedOut: 0,
+          failed: 0,
+          cutOff: 0,
+          skippedUnsupported: 0,
+          skippedExploration: 0,
+        },
+      });
+      expect(report.cacheHealth.byHost.map((hostShares) => hostShares.hostName)).toEqual([
+        externalName,
+      ]);
+      expect(Object.getPrototypeOf(report.decisions[0]?.statusCounts)).toBe(Object.prototype);
+    },
+  );
+});
