@@ -9,7 +9,7 @@ const ORDER_ID_DESCRIPTION = "Order identifier, for example ORD-10490.";
 const LINE_ITEM_ID_DESCRIPTION = "Line item identifier within the order, for example LI-2.";
 
 const DOMAIN_NOTE =
-  "Returns API: return identifiers look like RET- followed by digits. One return covers one line item. Return labels are prepaid by the merchant. Approved returns create their refund automatically; never create a second refund by hand.";
+  "Parameters: returnId is RET- plus digits; one return covers one line item, named LI- plus digits. Limits: approved returns create their refund automatically, so never refund the item again. Example: LI-2 is the second line of the order.";
 
 export const RETURN_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {

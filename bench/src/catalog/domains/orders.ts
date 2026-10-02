@@ -8,7 +8,7 @@ import {
 const ORDER_ID_DESCRIPTION = "Order identifier, for example ORD-10422.";
 
 const DOMAIN_NOTE =
-  "Orders API: order identifiers look like ORD- followed by digits and are case-sensitive. Amounts are integers in the smallest currency unit (cents). Dates are ISO 8601 in UTC. Reading needs the orders:read scope; any change needs orders:write.";
+  "Parameters: orderId is ORD- plus digits and is case-sensitive; amounts are integer cents; dates are ISO 8601 in UTC. Limits: 60 calls per minute; lists return at most 100 orders. Example: totalInCents 4190 means 41.90 USD.";
 
 export const ORDER_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {

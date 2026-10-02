@@ -10,7 +10,7 @@ const COUPON_CODE_DESCRIPTION = "Coupon code as the customer types it, for examp
 const ORDER_ID_DESCRIPTION = "Order identifier, for example ORD-10422.";
 
 const DOMAIN_NOTE =
-  "Coupons API: coupon codes are case-insensitive and stored in upper case. Percent discounts are 0-100; fixed amounts are integers in cents. Coupons apply to unpaid orders only. Changes reach every storefront within one minute.";
+  "Parameters: couponCode is case-insensitive and stored in upper case; percent values are 0-100 and fixed values are cents. Limits: one coupon per order; changes reach every storefront within a minute. Example: save20 is read as SAVE20.";
 
 export const COUPON_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {

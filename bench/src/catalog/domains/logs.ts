@@ -10,7 +10,7 @@ const START_TIME_DESCRIPTION = "Start of the time range, ISO date-time in UTC.";
 const END_TIME_DESCRIPTION = "End of the time range, ISO date-time in UTC.";
 
 const DOMAIN_NOTE =
-  "Observability API: times are ISO 8601 date-times in UTC. Ranges longer than 24 hours are rejected; narrow the range instead. Results are capped at 200 lines. Logs are redacted, so card numbers, tokens and passwords never appear.";
+  "Parameters: times are ISO 8601 date-times in UTC; serviceName is lower case with dashes. Limits: ranges over 24 hours are rejected, results stop at 200 lines, and secrets are redacted. Example: from 2026-10-01T10:00:00Z to 2026-10-01T10:15:00Z.";
 
 export const LOG_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {

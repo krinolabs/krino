@@ -9,7 +9,7 @@ const SKU_DESCRIPTION = "Stock keeping unit, for example TEE-BLK-M.";
 const WAREHOUSE_ID_DESCRIPTION = "Warehouse identifier, for example WH-EAST.";
 
 const DOMAIN_NOTE =
-  "Inventory API: SKUs are upper case with dashes, for example TEE-BLK-M. Quantities are whole units. Warehouses are WH-EAST, WH-WEST and WH-SOUTH. Counts update in near real time; reservations expire after 24 hours unless the order is paid.";
+  "Parameters: SKUs are upper case with dashes; quantities are whole units; warehouses are WH-EAST, WH-WEST and WH-SOUTH. Limits: counts refresh every 30 seconds; reservations expire after 24 hours unless paid. Example: TEE-BLK-M is a black tee, size M.";
 
 export const INVENTORY_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {

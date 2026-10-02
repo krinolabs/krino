@@ -25,6 +25,11 @@ export const MOCK_TOOL_CATALOG: ReadonlyArray<MockToolDefinition> = [
   ...LOG_TOOLS,
 ];
 
+/** All 100 tool names in catalog order. */
+export const MOCK_TOOL_NAMES: ReadonlyArray<string> = MOCK_TOOL_CATALOG.map(
+  (toolDefinition) => toolDefinition.toolName,
+);
+
 // A Map, not a plain object: tool names come from the model and may be 'constructor' or '__proto__'.
 const MOCK_TOOLS_BY_NAME: ReadonlyMap<string, MockToolDefinition> = new Map(
   MOCK_TOOL_CATALOG.map((toolDefinition) => [toolDefinition.toolName, toolDefinition]),

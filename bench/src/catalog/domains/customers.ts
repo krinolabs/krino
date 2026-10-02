@@ -8,7 +8,7 @@ import {
 const CUSTOMER_ID_DESCRIPTION = "Customer identifier, for example CUS-5531.";
 
 const DOMAIN_NOTE =
-  "Customers API: customer identifiers look like CUS- followed by digits. Treat every field as personal data and share it only with the account owner. Email changes, suspensions, closures and merges are written to the audit log with your agent identity.";
+  "Parameters: customerId is CUS- plus digits; email addresses match case-insensitively. Limits: every field is personal data, shared only with the account owner, and every write is audited. Example: Dana.R@Example.com matches dana.r@example.com.";
 
 export const CUSTOMER_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {

@@ -3,6 +3,8 @@ import { MOCK_TOOL_CATALOG } from "./mock-tool-catalog.js";
 import {
   CHARACTERS_PER_TOKEN,
   estimateCatalogSize,
+  measurePaddingShare,
+  reportPaddingShare,
   serializeToolDefinition,
 } from "./token-estimate.js";
 
@@ -31,5 +33,27 @@ describe("estimateCatalogSize", () => {
     expect(serializedTool.description).toBe(firstTool.toolDescription);
     expect(serializedTool.input_schema.type).toBe("object");
     expect(serializedTool.input_schema.$schema).toBeUndefined();
+  });
+});
+
+describe("reportPaddingShare", () => {
+  it("measures the domain note's share of one description", () => {
+    const firstTool = MOCK_TOOL_CATALOG[0];
+    if (firstTool === undefined) {
+      throw new Error("catalog is empty");
+    }
+    const paddingShare = measurePaddingShare({
+      ...firstTool,
+      toolDescription: "Core text. Padding.",
+      domainNote: "Padding.",
+    });
+    expect(paddingShare).toBeCloseTo(9 / 19);
+  });
+
+  it("reports one average per domain", () => {
+    const paddingReport = reportPaddingShare();
+    expect(paddingReport.averagePaddingShareByDomain.size).toBe(10);
+    expect(paddingReport.averagePaddingShare).toBeGreaterThan(0);
+    expect(paddingReport.averagePaddingShare).toBeLessThan(1);
   });
 });

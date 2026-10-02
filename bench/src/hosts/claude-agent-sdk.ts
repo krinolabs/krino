@@ -5,20 +5,20 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { buildInputShape } from "../catalog/input-schema.js";
-import { MOCK_TOOL_CATALOG } from "../catalog/mock-tool-catalog.js";
+import { findMockTool } from "../catalog/mock-tool-catalog.js";
 import type { MockToolDefinition } from "../catalog/mock-tool-definition.js";
 import { executeMockTool, type MockToolExecutionOutcome } from "../executor/execute-mock-tool.js";
 
 export const BENCH_MCP_SERVER_NAME = "krino-bench";
 export const BENCH_MCP_SERVER_VERSION = "0.0.0";
 
-export type BenchMcpServerOptions = {
-  toolDefinitions?: ReadonlyArray<MockToolDefinition>;
+export type AgentSdkMcpServerOptions = {
   /**
-   * Keep every tool in the prompt instead of deferring it behind tool search.
-   * Defaults to true so that the bench measures the full catalog, as the AI SDK host sends it.
+   * true (default): every tool stays in the prompt and is never deferred behind tool search
+   * (the Agent SDK `alwaysLoad` option), so the bench measures the full tool list, as the
+   * AI SDK host sends it. false: the Agent SDK default, which defers tools when tool search is on.
    */
-  alwaysLoad?: boolean;
+  loadAllTools?: boolean;
 };
 
 /** The name the Claude Agent SDK gives a tool of this server, for `allowedTools` and hooks. */
@@ -33,19 +33,32 @@ export function toCallToolResult(executionOutcome: MockToolExecutionOutcome): Ca
   };
 }
 
+/** Catalog tools for the names, in the given order, without repeats. Throws on unknown names. */
+function resolveToolDefinitions(toolNames: ReadonlyArray<string>): Array<MockToolDefinition> {
+  const uniqueToolNames = [...new Set(toolNames)];
+  const unknownToolNames = uniqueToolNames.filter(
+    (toolName) => findMockTool(toolName) === undefined,
+  );
+  if (unknownToolNames.length > 0) {
+    throw new Error(`Unknown bench tools: ${unknownToolNames.join(", ")}`);
+  }
+  return uniqueToolNames.flatMap((toolName) => findMockTool(toolName) ?? []);
+}
+
 /**
- * The catalog as an in-process MCP server for the Claude Agent SDK.
- * Pass it as `options.mcpServers[BENCH_MCP_SERVER_NAME]` to `query()`.
+ * The named catalog tools as an in-process MCP server for the Claude Agent SDK.
+ * Pass `MOCK_TOOL_NAMES` for the full catalog. Throws at setup if a name is not in the catalog.
+ * Use the result as `options.mcpServers[BENCH_MCP_SERVER_NAME]` in `query()`.
  */
-export function createBenchMcpServer(
-  serverOptions: BenchMcpServerOptions = {},
+export function toAgentSdkMcpServer(
+  toolNames: ReadonlyArray<string>,
+  serverOptions: AgentSdkMcpServerOptions = {},
 ): McpSdkServerConfigWithInstance {
-  const toolDefinitions = serverOptions.toolDefinitions ?? MOCK_TOOL_CATALOG;
   return createSdkMcpServer({
     name: BENCH_MCP_SERVER_NAME,
     version: BENCH_MCP_SERVER_VERSION,
-    alwaysLoad: serverOptions.alwaysLoad ?? true,
-    tools: toolDefinitions.map((toolDefinition) =>
+    alwaysLoad: serverOptions.loadAllTools ?? true,
+    tools: resolveToolDefinitions(toolNames).map((toolDefinition) =>
       tool(
         toolDefinition.toolName,
         toolDefinition.toolDescription,

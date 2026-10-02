@@ -9,7 +9,7 @@ const TICKET_ID_DESCRIPTION = "Support ticket identifier, for example TCK-9001."
 const PRIORITY_VALUES = ["low", "normal", "high", "urgent"];
 
 const DOMAIN_NOTE =
-  "Support API: ticket identifiers look like TCK- followed by digits. Public text is emailed to the customer exactly as written, so keep it polite and free of internal details. Every change appears in the ticket history with your agent identity.";
+  "Parameters: ticketId is TCK- plus digits; priority is low, normal, high or urgent. Limits: public text is emailed to the customer exactly as written, so keep internal details out; 30 writes per minute. Example: TCK-9001 is valid, TCK9001 is rejected.";
 
 export const SUPPORT_TICKET_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {

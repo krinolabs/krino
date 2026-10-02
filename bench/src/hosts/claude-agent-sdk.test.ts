@@ -1,20 +1,23 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
-import { MOCK_TOOL_CATALOG } from "../catalog/mock-tool-catalog.js";
+import { MOCK_TOOL_CATALOG, MOCK_TOOL_NAMES } from "../catalog/mock-tool-catalog.js";
 import { executeMockTool } from "../executor/execute-mock-tool.js";
 import {
+  type AgentSdkMcpServerOptions,
   BENCH_MCP_SERVER_NAME,
-  type BenchMcpServerOptions,
-  createBenchMcpServer,
+  toAgentSdkMcpServer,
   toCallToolResult,
   toClaudeAgentSdkToolName,
 } from "./claude-agent-sdk.js";
 
 const openClients: Array<Client> = [];
 
-async function connectClient(serverOptions: BenchMcpServerOptions = {}): Promise<Client> {
-  const serverConfig = createBenchMcpServer(serverOptions);
+async function connectClient(
+  toolNames: ReadonlyArray<string> = MOCK_TOOL_NAMES,
+  serverOptions: AgentSdkMcpServerOptions = {},
+): Promise<Client> {
+  const serverConfig = toAgentSdkMcpServer(toolNames, serverOptions);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await serverConfig.instance.connect(serverTransport);
   const client = new Client({ name: "bench-test", version: "0.0.0" });
@@ -27,9 +30,9 @@ afterEach(async () => {
   await Promise.all(openClients.splice(0).map((client) => client.close()));
 });
 
-describe("createBenchMcpServer", () => {
+describe("toAgentSdkMcpServer", () => {
   it("returns an in-process SDK server config", () => {
-    const serverConfig = createBenchMcpServer();
+    const serverConfig = toAgentSdkMcpServer(MOCK_TOOL_NAMES);
     expect(serverConfig.type).toBe("sdk");
     expect(serverConfig.name).toBe(BENCH_MCP_SERVER_NAME);
     expect(serverConfig.instance).toBeDefined();
@@ -45,7 +48,7 @@ describe("createBenchMcpServer", () => {
     expect(tools[0]?.inputSchema.required).toEqual(["orderId"]);
   });
 
-  it("marks every tool as always loaded by default", async () => {
+  it("loads every tool into the prompt by default (loadAllTools)", async () => {
     const client = await connectClient();
     const { tools } = await client.listTools();
     for (const listedTool of tools) {
@@ -53,11 +56,35 @@ describe("createBenchMcpServer", () => {
     }
   });
 
-  it("lets tools be deferred when alwaysLoad is false", async () => {
-    const client = await connectClient({ alwaysLoad: false });
+  it("keeps loadAllTools: true the same as the default", async () => {
+    const client = await connectClient(["get_order_status"], { loadAllTools: true });
+    const { tools } = await client.listTools();
+    expect(tools[0]?._meta?.["anthropic/alwaysLoad"]).toBe(true);
+  });
+
+  it("lets the Agent SDK defer tools when loadAllTools is false", async () => {
+    const client = await connectClient(MOCK_TOOL_NAMES, { loadAllTools: false });
     const { tools } = await client.listTools();
     expect(tools[0]?._meta?.["anthropic/alwaysLoad"]).not.toBe(true);
   });
+
+  it("serves only the named tools, in the given order, without repeats", async () => {
+    const client = await connectClient(["cancel_order", "get_order_status", "cancel_order"]);
+    const { tools } = await client.listTools();
+    expect(tools.map((listedTool) => listedTool.name)).toEqual([
+      "cancel_order",
+      "get_order_status",
+    ]);
+  });
+
+  it.each(["unknown_tool", "constructor", "toString", "__proto__"])(
+    "throws at setup for the unknown tool name %s",
+    (toolName) => {
+      expect(() => toAgentSdkMcpServer(["get_order_status", toolName])).toThrow(
+        `Unknown bench tools: ${toolName}`,
+      );
+    },
+  );
 
   it("answers a tool call with the fake executor outcome", async () => {
     const client = await connectClient();

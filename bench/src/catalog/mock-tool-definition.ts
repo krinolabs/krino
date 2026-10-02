@@ -33,8 +33,16 @@ export type MockToolParameter = {
 export type MockToolDefinition = {
   toolName: string;
   domainName: MockToolDomainName;
-  /** Sent to the model. Look-alike pairs say when *not* to use the tool. */
+  /**
+   * Sent to the model: what the tool does, then the domain note.
+   * Look-alike pairs say when *not* to use the tool.
+   */
   toolDescription: string;
+  /**
+   * The domain's API docs (parameters, limits, example) that end `toolDescription`.
+   * Every tool in a domain shares it; no two domains do.
+   */
+  domainNote: string;
   parameters: Array<MockToolParameter>;
   /** Set on a look-alike tool: the name of the tool it is easily confused with. */
   lookAlikeOf?: string;
@@ -42,17 +50,21 @@ export type MockToolDefinition = {
   fixedResult: JsonObject;
 };
 
+/** A tool as a domain file writes it, before the domain note is added. */
+export type MockToolDraft = Omit<MockToolDefinition, "domainNote">;
+
 /**
- * Appends the domain's API note (identifier formats, units, scopes) to each description,
- * the way real tool catalogs repeat their API conventions on every tool.
+ * Appends the domain's API docs to each description, the way real tool catalogs
+ * repeat their API conventions on every tool.
  */
 export function withDomainNote(
   domainNote: string,
-  toolDefinitions: Array<MockToolDefinition>,
+  toolDrafts: Array<MockToolDraft>,
 ): Array<MockToolDefinition> {
-  return toolDefinitions.map((toolDefinition) => ({
-    ...toolDefinition,
-    toolDescription: `${toolDefinition.toolDescription} ${domainNote}`,
+  return toolDrafts.map((toolDraft) => ({
+    ...toolDraft,
+    toolDescription: `${toolDraft.toolDescription} ${domainNote}`,
+    domainNote,
   }));
 }
 

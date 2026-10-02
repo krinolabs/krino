@@ -9,7 +9,7 @@ const PAYMENT_ID_DESCRIPTION = "Payment identifier, for example PAY-8812.";
 const DISPUTE_ID_DESCRIPTION = "Dispute identifier, for example DSP-410.";
 
 const DOMAIN_NOTE =
-  "Payments API: payment identifiers look like PAY- followed by digits. Amounts are integers in cents. Never send or ask for a full card number; use tokens only. Every write is idempotent per payment and is recorded in the audit log.";
+  "Parameters: paymentId is PAY- plus digits; amounts are integer cents; payment methods are tokens, never card numbers. Limits: each write is idempotent per payment for 24 hours. Example: capturing amountInCents 8000 collects 80.00 USD.";
 
 export const PAYMENT_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {

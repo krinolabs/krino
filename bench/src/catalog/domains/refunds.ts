@@ -9,7 +9,7 @@ const REFUND_ID_DESCRIPTION = "Refund identifier, for example RF-2201.";
 const ORDER_ID_DESCRIPTION = "Order identifier, for example ORD-10422.";
 
 const DOMAIN_NOTE =
-  "Refunds API: refund identifiers look like RF- followed by digits. Amounts are integers in cents and may not exceed what was captured for the order. Refunds over 500 USD wait for manager approval. Any change needs the refunds:write scope.";
+  "Parameters: refundId is RF- plus digits; amountInCents may not exceed what was captured for the order. Limits: refunds above 50000 cents wait for manager approval; 20 refund writes per minute. Example: amountInCents 1250 returns 12.50 USD.";
 
 export const REFUND_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {

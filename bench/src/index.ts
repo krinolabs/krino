@@ -3,6 +3,7 @@ export {
   findMockTool,
   hasMockTool,
   MOCK_TOOL_CATALOG,
+  MOCK_TOOL_NAMES,
   toToolDescriptions,
 } from "./catalog/mock-tool-catalog.js";
 export {
@@ -11,6 +12,7 @@ export {
   MOCK_TOOL_DOMAIN_NAMES,
   type MockToolDefinition,
   type MockToolDomainName,
+  type MockToolDraft,
   type MockToolParameter,
   type MockToolParameterType,
 } from "./catalog/mock-tool-definition.js";
@@ -18,6 +20,9 @@ export {
   type CatalogSizeEstimate,
   CHARACTERS_PER_TOKEN,
   estimateCatalogSize,
+  measurePaddingShare,
+  type PaddingShareReport,
+  reportPaddingShare,
   serializeToolDefinition,
 } from "./catalog/token-estimate.js";
 export {

@@ -10,7 +10,7 @@ const TRACKING_NUMBER_DESCRIPTION = "Carrier tracking number, for example 1Z999A
 const SERVICE_LEVEL_VALUES = ["economy", "standard", "express", "overnight"];
 
 const DOMAIN_NOTE =
-  "Shipping API: tracking numbers are carrier-specific and case-insensitive. Weights are in grams; postal codes are strings, never numbers. Carrier data can lag by up to two hours. Label purchases are billed to the merchant carrier account.";
+  "Parameters: postal codes are strings, never numbers; weights are grams; tracking numbers are case-insensitive. Limits: carrier scans can lag by two hours; quoted rates hold for 15 minutes. Example: a 1.2 kg parcel is weightInGrams 1200.";
 
 export const SHIPPING_TOOLS: Array<MockToolDefinition> = withDomainNote(DOMAIN_NOTE, [
   {
