@@ -106,33 +106,31 @@ function generateResultFor(scriptedStep: ScriptedStep, stepIndex: number): MockG
   return result;
 }
 
-/** A mock model that plays `scriptedSteps` in order; the last one repeats if the run goes on. */
+/**
+ * A mock model that plays `scriptedSteps` in order; the last one repeats if the run goes on.
+ * The step comes from the prompt (one assistant message per finished step), so concurrent calls
+ * on the same model each get their own script.
+ */
 export function createScriptedModel(
   scriptedSteps: Array<ScriptedStep>,
   modelId = "claude-haiku-4-5",
 ): MockLanguageModelV4 {
-  let callIndex = 0;
+  const scriptedResultFor = (callOptions: MockCallOptions): MockGenerateResult => {
+    const finishedStepCount = callOptions.prompt.filter(
+      (promptMessage) => promptMessage.role === "assistant",
+    ).length;
+    const stepIndex = Math.min(finishedStepCount, scriptedSteps.length - 1);
+    const scriptedStep = scriptedSteps[stepIndex];
+    if (scriptedStep === undefined) {
+      throw new Error("createScriptedModel needs at least one step");
+    }
+    return generateResultFor(scriptedStep, stepIndex);
+  };
   return new MockLanguageModelV4({
     provider: "anthropic.messages",
     modelId,
-    doGenerate: async () => {
-      const stepIndex = Math.min(callIndex, scriptedSteps.length - 1);
-      callIndex += 1;
-      const scriptedStep = scriptedSteps[stepIndex];
-      if (scriptedStep === undefined) {
-        throw new Error("createScriptedModel needs at least one step");
-      }
-      return generateResultFor(scriptedStep, stepIndex);
-    },
-    doStream: async () => {
-      const stepIndex = Math.min(callIndex, scriptedSteps.length - 1);
-      callIndex += 1;
-      const scriptedStep = scriptedSteps[stepIndex];
-      if (scriptedStep === undefined) {
-        throw new Error("createScriptedModel needs at least one step");
-      }
-      return streamResultFor(generateResultFor(scriptedStep, stepIndex));
-    },
+    doGenerate: async (callOptions) => scriptedResultFor(callOptions),
+    doStream: async (callOptions) => streamResultFor(scriptedResultFor(callOptions)),
   });
 }
 
