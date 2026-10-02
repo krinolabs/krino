@@ -10,6 +10,8 @@ import type {
 import type { AgentRunState } from "./agent-run-state.js";
 import { buildDisallowedTools } from "./build-disallowed-tools.js";
 import { claudeAgentSdkVersion } from "./host-sdk-version.js";
+import { mergeHooks } from "./merge-hooks.js";
+import { createKrinoPreToolUseHook } from "./pre-tool-use-hook.js";
 import { warnOncePerProcess } from "./warn-once.js";
 
 export const CLAUDE_AGENT_SDK_HOST_NAME: HostName = "claude-agent-sdk";
@@ -78,6 +80,8 @@ function uniqueToolDescriptions(
  * - Enforce mode prunes with `disallowedTools` only: the user's entries plus the known tools that
  *   were not suggested. `allowedTools` is never read or changed. Shadow mode, a timeout, a failure,
  *   low confidence or an exploration sample leave tool availability unchanged.
+ * - Adds a `PreToolUse` hook that checks each tool call's risk. The user's hooks keep their order;
+ *   krino's matcher comes last. In shadow mode krino's hook never changes the hook decision.
  */
 export async function krinoAgentOptions(
   queryOptions: Options,
@@ -110,7 +114,25 @@ export async function krinoAgentOptions(
   });
   const toolSelectionLatencyInMilliseconds = Math.round(performance.now() - decisionStartedAt);
 
-  const resultOptions: Options = { ...queryOptions };
+  const runState: AgentRunState = {
+    hostSdkVersion,
+    requestedModelIdentifier:
+      typeof queryOptions.model === "string" && queryOptions.model !== ""
+        ? queryOptions.model
+        : null,
+    availableToolNames,
+    toolSelectionLatencyInMilliseconds,
+    toolCallCount: 0,
+    toolCallSteps: [],
+    usedToolNames: new Set(),
+    finishPromise: null,
+  };
+  const resultOptions: Options = {
+    ...queryOptions,
+    hooks: mergeHooks(queryOptions.hooks, {
+      hooks: [createKrinoPreToolUseHook(runHandle, runState)],
+    }),
+  };
   if (toolSelection.decisionRecord.decisionMode === "enforce") {
     const userDisallowedTools = queryOptions.disallowedTools;
     const disallowedTools = buildDisallowedTools({
@@ -124,18 +146,6 @@ export async function krinoAgentOptions(
   }
 
   const krinoRun: KrinoAgentRun = { queryOptions: resultOptions, runHandle, toolSelection };
-  agentRunStates.set(krinoRun, {
-    hostSdkVersion,
-    requestedModelIdentifier:
-      typeof queryOptions.model === "string" && queryOptions.model !== ""
-        ? queryOptions.model
-        : null,
-    availableToolNames,
-    toolSelectionLatencyInMilliseconds,
-    toolCallCount: 0,
-    toolCallSteps: [],
-    usedToolNames: new Set(),
-    finishPromise: null,
-  });
+  agentRunStates.set(krinoRun, runState);
   return krinoRun;
 }
