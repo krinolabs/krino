@@ -36,14 +36,19 @@ function portablePath(text: string): string {
 
 type CapturedRun = { exitCode: number; output: string; errorOutput: string };
 
+/** `--trace-dir` is optional in tests: `null` unless given. */
+type TestReportOptions = Omit<ReportOptions, "traceDirectory"> & {
+  traceDirectory?: string | null;
+};
+
 async function runCaptured(
-  reportOptions: ReportOptions & { json: boolean },
+  reportOptions: TestReportOptions & { json: boolean },
   options: { isTerminal?: boolean; dependencies?: Partial<ReportDependencies> } = {},
 ): Promise<CapturedRun> {
   let output = "";
   let errorOutput = "";
   const exitCode = await runReport(
-    reportOptions,
+    { traceDirectory: null, ...reportOptions },
     {
       writeOutput: (text) => {
         output += text;
@@ -59,10 +64,13 @@ async function runCaptured(
 }
 
 async function reportFor(
-  reportOptions: ReportOptions,
+  reportOptions: TestReportOptions,
   dependencyOverrides: Partial<ReportDependencies> = {},
 ): Promise<KrinoReport> {
-  const reportResult = await createReport(reportOptions, fixtureDependencies(dependencyOverrides));
+  const reportResult = await createReport(
+    { traceDirectory: null, ...reportOptions },
+    fixtureDependencies(dependencyOverrides),
+  );
   if (reportResult.resultKind !== "report") {
     throw new Error(`expected a report, got: ${reportResult.message}`);
   }
@@ -253,6 +261,46 @@ describe("trace folders whose path has glob characters", () => {
     );
     expect(report.lines.readLineCount).toBe(26);
     expect(report.records.agentStepCount).toBe(14);
+  });
+});
+
+describe("which trace folder is read", () => {
+  const FIXTURE_PROJECT_FOLDER = nodePath.join(FIXTURE_HOME, ".krino", "traces", "fixture-project");
+  const OTHER_PROJECT_FOLDER = nodePath.join(FIXTURE_HOME, ".krino", "traces", "other-project");
+
+  it("uses --trace-dir before $KRINO_TRACE_DIRECTORY and the default folder", async () => {
+    const report = await reportFor(
+      { projectName: null, sinceText: "7d", traceDirectory: OTHER_PROJECT_FOLDER },
+      { environment: { KRINO_TRACE_DIRECTORY: FIXTURE_PROJECT_FOLDER } },
+    );
+    expect(report.filters.traceDirectory).toBe("<home>/.krino/traces/other-project");
+    expect(report.records.projectNames).toEqual(["other-project"]);
+  });
+
+  it("uses $KRINO_TRACE_DIRECTORY before the default folder", async () => {
+    const report = await reportFor(
+      { projectName: null, sinceText: "7d" },
+      { environment: { KRINO_TRACE_DIRECTORY: OTHER_PROJECT_FOLDER } },
+    );
+    expect(report.filters.traceDirectory).toBe("<home>/.krino/traces/other-project");
+    expect(report.records.projectNames).toEqual(["other-project"]);
+  });
+
+  it("uses the default folder when neither is set", async () => {
+    const report = await reportFor({ projectName: null, sinceText: "7d" });
+    expect(report.filters.traceDirectory).toBe("<home>/.krino/traces");
+    expect(report.records.projectNames).toEqual(["fixture-project", "other-project"]);
+  });
+
+  it("resolves a relative --trace-dir against the working directory and filters by --project", async () => {
+    const report = await reportFor({
+      projectName: "other-project",
+      sinceText: "7d",
+      traceDirectory: nodePath.join(".krino", "traces", "fixture-project"),
+    });
+    expect(report.filters.traceDirectory).toBe("<home>/.krino/traces/fixture-project");
+    expect(report.lines.readLineCount).toBe(26);
+    expect(report.records.agentStepCount).toBe(0);
   });
 });
 

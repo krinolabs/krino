@@ -11,6 +11,8 @@ export const XDG_STATE_HOME_ENVIRONMENT_VARIABLE = "XDG_STATE_HOME";
 
 /** Everything `resolveTraceLocation` reads from its surroundings. */
 export type TraceLocationInputs = {
+  /** `--trace-dir`; `null` when not given. Wins over every other folder. */
+  traceDirectoryOption: string | null;
   /** `--project`; `null` reads every project. */
   projectName: string | null;
   environment: Readonly<Record<string, string | undefined>>;
@@ -56,15 +58,19 @@ export function projectFolderName(projectName: string): string {
 }
 
 /**
- * The folder the file sink writes to, in the sink's order:
- * 1. `$KRINO_TRACE_DIRECTORY` (one folder, possibly shared by several projects);
- * 2. `$XDG_STATE_HOME/krino/traces/<project>` (ignored unless absolute);
- * 3. `<home>/.krino/traces/<project>`.
- * Without a project name, 2 and 3 read every project folder under `…/krino/traces`.
+ * The folder to read, in this order:
+ * 1. `--trace-dir` (one folder, resolved against the working directory);
+ * 2. `$KRINO_TRACE_DIRECTORY` (one folder, possibly shared by several projects);
+ * 3. the file sink's default: `$XDG_STATE_HOME/krino/traces/<project>` (ignored unless
+ *    absolute), else `<home>/.krino/traces/<project>`.
+ * Without a project name, 3 reads every project folder under `…/krino/traces`.
+ * Records in a folder from 1 or 2 are still filtered by `--project`.
  */
 export function resolveTraceLocation(inputs: TraceLocationInputs): TraceLocation {
   const { environment, pathModule } = inputs;
-  const explicitDirectory = nonBlank(environment[TRACE_DIRECTORY_ENVIRONMENT_VARIABLE]);
+  const explicitDirectory =
+    nonBlank(inputs.traceDirectoryOption ?? undefined) ??
+    nonBlank(environment[TRACE_DIRECTORY_ENVIRONMENT_VARIABLE]);
   if (explicitDirectory !== null) {
     return {
       locationKind: "projectFolder",

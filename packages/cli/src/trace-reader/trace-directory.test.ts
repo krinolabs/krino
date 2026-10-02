@@ -8,12 +8,37 @@ import {
 } from "./trace-directory.js";
 
 const posixInputs = {
+  traceDirectoryOption: null,
   homeDirectory: "/home/me",
   workingDirectory: "/work",
   pathModule: nodePath.posix,
 };
 
 describe("resolveTraceLocation", () => {
+  it("reads --trace-dir first, then $KRINO_TRACE_DIRECTORY, then the default folder", () => {
+    const environment = { KRINO_TRACE_DIRECTORY: "/from-environment" };
+    expect(
+      resolveTraceLocation({
+        ...posixInputs,
+        traceDirectoryOption: "/from-option",
+        projectName: "shop",
+        environment,
+      }),
+    ).toEqual({ locationKind: "projectFolder", directoryPath: "/from-option" });
+    expect(resolveTraceLocation({ ...posixInputs, projectName: "shop", environment })).toEqual({
+      locationKind: "projectFolder",
+      directoryPath: "/from-environment",
+    });
+    expect(
+      resolveTraceLocation({
+        ...posixInputs,
+        traceDirectoryOption: " ",
+        projectName: "shop",
+        environment: {},
+      }),
+    ).toEqual({ locationKind: "projectFolder", directoryPath: "/home/me/.krino/traces/shop" });
+  });
+
   it("reads $KRINO_TRACE_DIRECTORY as one folder, resolved against the working directory", () => {
     expect(
       resolveTraceLocation({
@@ -61,6 +86,7 @@ describe("resolveTraceLocation", () => {
   it("uses Windows path rules with path.win32", () => {
     expect(
       resolveTraceLocation({
+        traceDirectoryOption: null,
         projectName: "shop",
         environment: {},
         homeDirectory: "C:\\Users\\me",

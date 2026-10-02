@@ -24,6 +24,8 @@ export type ReportOptions = {
   /** `null` reads every project. */
   projectName: string | null;
   sinceText: string;
+  /** `--trace-dir`; `null` falls back to `$KRINO_TRACE_DIRECTORY`, then the default folder. */
+  traceDirectory: string | null;
 };
 
 /** Everything `krino report` takes from its surroundings. Injectable for tests. */
@@ -75,6 +77,7 @@ export async function createReport(
       ? null
       : reportOptions.projectName;
   const traceLocation = resolveTraceLocation({
+    traceDirectoryOption: reportOptions.traceDirectory,
     projectName,
     environment: dependencies.environment,
     homeDirectory: dependencies.homeDirectory(),
@@ -149,6 +152,11 @@ export const reportCommand = defineCommand({
       type: "string",
       description: "Project name to report on (default: every project)",
     },
+    "trace-dir": {
+      type: "string",
+      description:
+        "Folder with the trace files (default: $KRINO_TRACE_DIRECTORY, then ~/.krino/traces/<project>)",
+    },
     since: {
       type: "string",
       description: "Only records since this duration (12h, 7d, 2w) or ISO date",
@@ -162,7 +170,12 @@ export const reportCommand = defineCommand({
   },
   run: async ({ args }) => {
     process.exitCode = await runReport(
-      { projectName: args.project ?? null, sinceText: args.since, json: args.json },
+      {
+        projectName: args.project ?? null,
+        sinceText: args.since,
+        traceDirectory: args["trace-dir"] ?? null,
+        json: args.json,
+      },
       {
         writeOutput: (text) => process.stdout.write(text),
         writeError: (text) => process.stderr.write(text),

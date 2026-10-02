@@ -132,9 +132,9 @@ describe.runIf(runPerformanceTest)("report performance", () => {
     const folderSize = writeTraceFolder(folderPath);
     const startedAt = performance.now();
     const reportResult = await createReport(
-      { projectName: "perf-project", sinceText: "2026-09-01" },
+      { projectName: "perf-project", sinceText: "2026-09-01", traceDirectory: folderPath },
       {
-        environment: { KRINO_TRACE_DIRECTORY: folderPath },
+        environment: {},
         homeDirectory: () => folderPath,
         workingDirectory: () => folderPath,
         now: () => new Date("2026-10-02T12:00:00.000Z"),

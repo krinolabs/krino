@@ -1,25 +1,28 @@
 # `krino report`
 
 ```
-krino report [--project <name>] [--since 7d] [--json]
+krino report [--project <name>] [--since 7d] [--trace-dir <folder>] [--json]
 ```
 
 - `--project`: report on one project. Default: every project.
 - `--since`: a duration back from now (`12h`, `7d`, `2w`) or an ISO date or time
   (`2026-09-01`, `2026-09-01T08:00:00Z`). Default `7d`.
+- `--trace-dir`: the folder with the trace files. Wins over `$KRINO_TRACE_DIRECTORY`.
 - `--json`: print the report as JSON (shape below) instead of text.
 
 Exit code: 0 on success, 1 on a bad `--since` or when the trace files cannot be read.
 
 ## Where it reads
 
-The same folder the file sink writes to:
+The first that is set:
 
-1. `$KRINO_TRACE_DIRECTORY` (records are then filtered by `--project`, if given);
-2. `$XDG_STATE_HOME/krino/traces/<project>` (only when `XDG_STATE_HOME` is absolute);
-3. `~/.krino/traces/<project>`.
+1. `--trace-dir` (relative folders resolve against the working directory);
+2. `$KRINO_TRACE_DIRECTORY`;
+3. the folder the file sink writes to by default: `$XDG_STATE_HOME/krino/traces/<project>`
+   (only when `XDG_STATE_HOME` is absolute), else `~/.krino/traces/<project>`.
 
-Without `--project`, 2 and 3 read every project folder under `…/krino/traces`.
+Records in a folder from 1 or 2 are still filtered by `--project`. Without `--project`, 3 reads
+every project folder under `…/krino/traces`.
 Only `traces-YYYY-MM-DD[.N].jsonl` files are read, and files from days before `--since` are
 skipped. Node lists and reads the files; DuckDB gets their lines, never a path, because
 DuckDB treats every path as a glob (a folder named `traces [old]` would match nothing).
