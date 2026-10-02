@@ -135,7 +135,7 @@ describe.runIf(runPerformanceTest)("report performance", () => {
       { projectName: "perf-project", sinceText: "2026-09-01", traceDirectory: folderPath },
       {
         environment: {},
-        homeDirectory: () => folderPath,
+        defaultTraceDirectory: () => folderPath,
         workingDirectory: () => folderPath,
         now: () => new Date("2026-10-02T12:00:00.000Z"),
         modelPrices: DEFAULT_MODEL_PRICES,

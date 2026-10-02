@@ -3,11 +3,12 @@ import { tmpdir } from "node:os";
 import nodePath from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_MODEL_PRICES } from "@krinolabs/krino";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import type { KrinoReport } from "../report/report-types.js";
 import {
   createReport,
   DEFAULT_TOKENS_PER_TOOL_DEFINITION,
+  defaultReportDependencies,
   type ReportDependencies,
   type ReportOptions,
   runReport,
@@ -17,10 +18,15 @@ const FIXTURE_HOME = fileURLToPath(new URL("../report/fixtures/home", import.met
 const FIXTURE_NOW = new Date("2026-10-02T12:00:00.000Z");
 const ANSI_ESCAPE = "\u001b[";
 
+/** The file sink's default folder rule, rooted at `homeFolder`. */
+function defaultTraceDirectoryUnder(homeFolder: string): (projectName: string) => string {
+  return (projectName) => nodePath.join(homeFolder, ".krino", "traces", projectName);
+}
+
 function fixtureDependencies(overrides: Partial<ReportDependencies> = {}): ReportDependencies {
   return {
     environment: {},
-    homeDirectory: () => FIXTURE_HOME,
+    defaultTraceDirectory: defaultTraceDirectoryUnder(FIXTURE_HOME),
     workingDirectory: () => FIXTURE_HOME,
     now: () => FIXTURE_NOW,
     modelPrices: DEFAULT_MODEL_PRICES,
@@ -244,7 +250,7 @@ describe("trace folders whose path has glob characters", () => {
     const expected = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
     const fromBracketedHome = await reportFor(
       { projectName: "fixture-project", sinceText: "7d" },
-      { homeDirectory: () => homeFolder },
+      { defaultTraceDirectory: defaultTraceDirectoryUnder(homeFolder) },
     );
     expect(fromBracketedHome.filters.traceDirectory).toContain("krino home [old] copy");
     expect(fromBracketedHome.filters.traceFileCount).toBe(2);
@@ -257,7 +263,7 @@ describe("trace folders whose path has glob characters", () => {
     const homeFolder = bracketedHome();
     const report = await reportFor(
       { projectName: null, sinceText: "7d" },
-      { homeDirectory: () => homeFolder },
+      { defaultTraceDirectory: defaultTraceDirectoryUnder(homeFolder) },
     );
     expect(report.lines.readLineCount).toBe(26);
     expect(report.records.agentStepCount).toBe(14);
@@ -284,6 +290,28 @@ describe("which trace folder is read", () => {
     );
     expect(report.filters.traceDirectory).toBe("<home>/.krino/traces/other-project");
     expect(report.records.projectNames).toEqual(["other-project"]);
+  });
+
+  it("uses resolveTraceDirectory from @krinolabs/krino for the default folder", async () => {
+    vi.stubEnv("KRINO_TRACE_DIRECTORY", "");
+    vi.stubEnv("XDG_STATE_HOME", "");
+    vi.stubEnv("HOME", FIXTURE_HOME);
+    vi.stubEnv("USERPROFILE", FIXTURE_HOME);
+    try {
+      const reportResult = await createReport(
+        { projectName: "fixture-project", sinceText: "7d", traceDirectory: null },
+        { ...defaultReportDependencies(), now: () => FIXTURE_NOW },
+      );
+      if (reportResult.resultKind !== "report") {
+        throw new Error(reportResult.message);
+      }
+      expect(portablePath(reportResult.report.filters.traceDirectory)).toBe(
+        "<home>/.krino/traces/fixture-project",
+      );
+      expect(reportResult.report.records.agentStepCount).toBe(14);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("uses the default folder when neither is set", async () => {

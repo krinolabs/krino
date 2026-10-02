@@ -1,6 +1,5 @@
-import { homedir } from "node:os";
 import nodePath from "node:path";
-import { DEFAULT_MODEL_PRICES, type ModelPrice } from "@krinolabs/krino";
+import { DEFAULT_MODEL_PRICES, type ModelPrice, resolveTraceDirectory } from "@krinolabs/krino";
 import { defineCommand } from "citty";
 import { renderBanner } from "../banner/krino-banner.js";
 import { buildReport } from "../report/build-report.js";
@@ -31,7 +30,8 @@ export type ReportOptions = {
 /** Everything `krino report` takes from its surroundings. Injectable for tests. */
 export type ReportDependencies = {
   environment: Readonly<Record<string, string | undefined>>;
-  homeDirectory: () => string;
+  /** The file sink's default folder for a project: `resolveTraceDirectory` from `@krinolabs/krino`. */
+  defaultTraceDirectory: (projectName: string) => string;
   workingDirectory: () => string;
   now: () => Date;
   listDirectory?: ListDirectory;
@@ -49,7 +49,7 @@ export type ReportOutput = {
 export function defaultReportDependencies(): ReportDependencies {
   return {
     environment: process.env,
-    homeDirectory: homedir,
+    defaultTraceDirectory: resolveTraceDirectory,
     workingDirectory: () => process.cwd(),
     now: () => new Date(),
     modelPrices: DEFAULT_MODEL_PRICES,
@@ -80,8 +80,8 @@ export async function createReport(
     traceDirectoryOption: reportOptions.traceDirectory,
     projectName,
     environment: dependencies.environment,
-    homeDirectory: dependencies.homeDirectory(),
     workingDirectory: dependencies.workingDirectory(),
+    defaultTraceDirectory: dependencies.defaultTraceDirectory,
     pathModule: nodePath,
   });
   const traceFilePaths = await listTraceFiles(

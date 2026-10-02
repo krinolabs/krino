@@ -1,13 +1,12 @@
 import type nodePath from "node:path";
 
-// Mirrors packages/krino/src/sinks/file/trace-directory.ts and trace-file-name.ts. Those helpers
-// are not exported from `@krinolabs/krino`, so the CLI keeps a copy. Keep both in step.
-
 /** The `path` functions the resolver uses; `path.win32` and `path.posix` both fit. */
-export type PathFunctions = Pick<typeof nodePath, "isAbsolute" | "join" | "resolve">;
+export type PathFunctions = Pick<typeof nodePath, "dirname" | "resolve">;
 
 export const TRACE_DIRECTORY_ENVIRONMENT_VARIABLE = "KRINO_TRACE_DIRECTORY";
-export const XDG_STATE_HOME_ENVIRONMENT_VARIABLE = "XDG_STATE_HOME";
+
+/** Project name `resolveTraceLocation` asks for when it only needs the traces root. */
+const ANY_PROJECT_NAME = "any-project";
 
 /** Everything `resolveTraceLocation` reads from its surroundings. */
 export type TraceLocationInputs = {
@@ -16,8 +15,13 @@ export type TraceLocationInputs = {
   /** `--project`; `null` reads every project. */
   projectName: string | null;
   environment: Readonly<Record<string, string | undefined>>;
-  homeDirectory: string;
   workingDirectory: string;
+  /**
+   * The file sink's default folder for a project, `<traces root>/<project folder>`:
+   * `resolveTraceDirectory` from `@krinolabs/krino`. Asked only when neither `--trace-dir` nor
+   * `$KRINO_TRACE_DIRECTORY` is set.
+   */
+  defaultTraceDirectory: (projectName: string) => string;
   pathModule: PathFunctions;
 };
 
@@ -30,66 +34,46 @@ export type TraceLocation =
   | { locationKind: "projectFolder"; directoryPath: string }
   | { locationKind: "tracesRoot"; directoryPath: string };
 
-const UNNAMED_PROJECT_FOLDER = "unnamed-project";
-const WINDOWS_FORBIDDEN_CHARACTERS = new Set(["<", ">", ":", '"', "/", "\\", "|", "?", "*"]);
-const WINDOWS_RESERVED_NAME = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
-const FIRST_PRINTABLE_CHARACTER_CODE = 0x20;
-
 /** `traces-2026-10-02.jsonl`, then `traces-2026-10-02.1.jsonl`, `.2`, … after each rotation. */
 const TRACE_FILE_NAME_PATTERN = /^traces-(\d{4}-\d{2}-\d{2})(?:\.([1-9]\d*))?\.jsonl$/;
 
-function nonBlank(value: string | undefined): string | null {
-  return value === undefined || value.trim() === "" ? null : value;
-}
-
-/** Same folder name the file sink uses for a project. */
-export function projectFolderName(projectName: string): string {
-  const safeCharacters = Array.from(projectName.trim(), (character) =>
-    WINDOWS_FORBIDDEN_CHARACTERS.has(character) ||
-    character.charCodeAt(0) < FIRST_PRINTABLE_CHARACTER_CODE
-      ? "-"
-      : character,
-  ).join("");
-  const folderName = safeCharacters.replace(/[. ]+$/, "");
-  if (folderName === "") {
-    return UNNAMED_PROJECT_FOLDER;
-  }
-  return WINDOWS_RESERVED_NAME.test(folderName) ? `${folderName}-project` : folderName;
+function nonBlank(value: string | null | undefined): string | null {
+  return value === undefined || value === null || value.trim() === "" ? null : value;
 }
 
 /**
  * The folder to read, in this order:
  * 1. `--trace-dir` (one folder, resolved against the working directory);
  * 2. `$KRINO_TRACE_DIRECTORY` (one folder, possibly shared by several projects);
- * 3. the file sink's default: `$XDG_STATE_HOME/krino/traces/<project>` (ignored unless
- *    absolute), else `<home>/.krino/traces/<project>`.
- * Without a project name, 3 reads every project folder under `…/krino/traces`.
+ * 3. the file sink's default folder for `--project`; without `--project`, its parent (the
+ *    traces root), so every project folder is read.
  * Records in a folder from 1 or 2 are still filtered by `--project`.
  */
 export function resolveTraceLocation(inputs: TraceLocationInputs): TraceLocation {
-  const { environment, pathModule } = inputs;
+  const { pathModule } = inputs;
   const explicitDirectory =
-    nonBlank(inputs.traceDirectoryOption ?? undefined) ??
-    nonBlank(environment[TRACE_DIRECTORY_ENVIRONMENT_VARIABLE]);
+    nonBlank(inputs.traceDirectoryOption) ??
+    nonBlank(inputs.environment[TRACE_DIRECTORY_ENVIRONMENT_VARIABLE]);
   if (explicitDirectory !== null) {
     return {
       locationKind: "projectFolder",
       directoryPath: pathModule.resolve(inputs.workingDirectory, explicitDirectory),
     };
   }
-  const stateHome = nonBlank(environment[XDG_STATE_HOME_ENVIRONMENT_VARIABLE]);
-  const tracesRoot =
-    stateHome !== null && pathModule.isAbsolute(stateHome)
-      ? pathModule.join(stateHome, "krino", "traces")
-      : pathModule.join(inputs.homeDirectory, ".krino", "traces");
   if (inputs.projectName === null) {
-    return { locationKind: "tracesRoot", directoryPath: tracesRoot };
+    return {
+      locationKind: "tracesRoot",
+      directoryPath: pathModule.dirname(inputs.defaultTraceDirectory(ANY_PROJECT_NAME)),
+    };
   }
   return {
     locationKind: "projectFolder",
-    directoryPath: pathModule.join(tracesRoot, projectFolderName(inputs.projectName)),
+    directoryPath: inputs.defaultTraceDirectory(inputs.projectName),
   };
 }
+
+// The file-name rule mirrors packages/krino/src/sinks/file/trace-file-name.ts, which
+// `@krinolabs/krino` does not export.
 
 /** The UTC day in a trace file name, or `null` for any file that is not a krino trace file. */
 export function traceFileUtcDay(fileName: string): string | null {
