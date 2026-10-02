@@ -1,7 +1,7 @@
 # WP-09 · CLI foundation + `krino report`
 
 > **Branch:** `wp-09-cli-foundation-krino-report`  |  **Status:** ☐ not started
-> **Read first:** [`AGENTS.md`](../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
+> **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 
 - **Owner role:** Cursor.

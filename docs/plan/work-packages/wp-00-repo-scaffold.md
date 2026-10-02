@@ -1,12 +1,12 @@
 # WP-00 · Repo scaffold
 
 > **Branch:** `wp-00-repo-scaffold`  |  **Status:** ☐ not started
-> **Read first:** [`AGENTS.md`](../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
+> **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 
 - **Owner role:** lead (or one agent).
 - **Depends on:** nothing.
-- **Owns (write):** root config files, `.github/workflows/`, `packages/*/package.json`, `packages/*/tsconfig.json`, empty `src/index.ts` files, `AGENTS.md`, `CLAUDE.md`.
+- **Owns (write):** root config files, `.github/workflows/`, `packages/*/package.json`, `packages/*/tsconfig.json`, empty `src/index.ts` files, `AGENTS.md`, `CLAUDE.md`, `bench/`, `examples/*`, `e2e/`, `.changeset/`, `README.md`, `LICENSE`, `docs/` (one-time move into `docs/plan/`).
 - **Deliverables:**
   - pnpm workspace + Turborepo (`build`, `typecheck`, `test`, `lint` tasks).
   - `tsconfig.base.json`: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, ES2022, NodeNext modules.

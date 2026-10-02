@@ -7,8 +7,8 @@
 
 | File | Purpose |
 |---|---|
-| [`AGENTS.md`](./AGENTS.md) | Rules every agent follows (copy to repo root) |
-| [`CLAUDE.md`](./CLAUDE.md) | One line that makes Claude Code read `AGENTS.md` (copy to repo root) |
+| [`AGENTS.md`](../../AGENTS.md) | Rules every agent follows (copy to repo root) |
+| [`CLAUDE.md`](../../CLAUDE.md) | One line that makes Claude Code read `AGENTS.md` (copy to repo root) |
 | [`architecture.md`](./architecture.md) | Architecture, decisions, trade-offs, perks |
 | [`shared/01-scope.md`](./shared/01-scope.md) | v0.1 scope and release definition of done |
 | [`shared/02-repo-layout.md`](./shared/02-repo-layout.md) | Target folders and package exports |
@@ -36,7 +36,7 @@
 | Codex | Well-specified, test-heavy WPs: WP-03, WP-04, WP-08, WP-11 |
 | Cursor | UI-like or content-heavy WPs, quick iterations: WP-05, WP-09, WP-12, WP-13 |
 
-All tools read `AGENTS.md`. Claude Code reads `CLAUDE.md`, which imports `AGENTS.md` ([`AGENTS.md`](./AGENTS.md)).
+All tools read `AGENTS.md`. Claude Code reads `CLAUDE.md`, which imports `AGENTS.md` ([`AGENTS.md`](../../AGENTS.md)).
 
 ## 🔗 Dependencies and waves
 

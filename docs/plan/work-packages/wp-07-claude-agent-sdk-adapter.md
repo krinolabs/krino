@@ -1,7 +1,7 @@
 # WP-07 · Claude Agent SDK adapter
 
 > **Branch:** `wp-07-claude-agent-sdk-adapter`  |  **Status:** ☐ not started
-> **Read first:** [`AGENTS.md`](../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
+> **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 
 - **Owner role:** Claude Code.
