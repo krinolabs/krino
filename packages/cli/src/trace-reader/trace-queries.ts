@@ -323,6 +323,19 @@ FROM run_suggestions
 GROUP BY ALL
 ORDER BY ALL`;
 
+/**
+ * Risk-gate suggestions per host and mode. v0.1 traces do not record what the host did with
+ * the call, so the report shows what the gate suggested instead of an agreement rate.
+ * `suggested_choice` is NULL when there was no suggestion (for example, a cut-off).
+ */
+export const RISK_GATE_SUGGESTION_COUNTS_SQL = `
+SELECT hostName AS host_name, decisionMode AS decision_mode,
+  suggestedChoice AS suggested_choice, count(*)::DOUBLE AS decision_count
+FROM decision_rows
+WHERE decisionKind = 'riskGate'
+GROUP BY ALL
+ORDER BY ALL`;
+
 /** Input tokens per host. Each run counts once: its summary, else the sum of its steps. */
 export const CACHE_USAGE_SQL = `
 WITH run_usage AS (

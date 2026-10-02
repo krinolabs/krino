@@ -48,7 +48,9 @@ Every non-blank line is checked. A line is skipped and counted when it:
   - The suggested set is the run's first tool-selection suggestion with status `answered` or
     `skippedExploration`. In enforce mode only exploration runs are compared, because enforced
     runs see only the suggested tools.
-  - The risk gate has no agreement in v0.1: traces do not record what the host did.
+- **Risk-gate suggestions**, per host: how often the gate suggested `allow`, `askHuman` and
+  `block`, plus `noSuggestion` (for example, cut off). v0.1 traces do not record the host's real
+  permission outcome, so the risk gate has no agreement rate.
 - **Cost saved if enforced** (tool selection only; an estimate): sending only the suggested
   tools removes `(available tools − suggested tools) × tokensPerToolDefinition` input tokens from
   every step of the run. Each step pays for those tokens at its own mix of uncached, cache-read
@@ -117,11 +119,13 @@ money is USD (rounded to 9 decimals), latency is milliseconds. `null` means "no 
           "agreementRate": 0.75
         }
       ],
+      "suggestionsByHost": [],        // risk gate only: [{ "hostName", "allow", "askHuman", "block", "noSuggestion" }]
       "costSavedIfEnforced": {
         "estimateKind": "estimated",   // or { "estimateKind": "notApplicable", "reason": "…" }
-        "grossSavingInUsd": 0.003649267,
+        "tokensPerToolDefinition": 175, // the assumption behind the estimate
+        "grossSavingInUsd": 0.004257478,
         "decisionCostInUsd": 0.0013,
-        "netSavingInUsd": 0.002349267,
+        "netSavingInUsd": 0.002957478,
         "suggestionRunCount": 4,
         "unpricedModelIdentifiers": []
       },

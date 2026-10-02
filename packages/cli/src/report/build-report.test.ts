@@ -9,6 +9,7 @@ import {
   buildReport,
   cacheShares,
   hostAgreements,
+  riskGateSuggestions,
 } from "./build-report.js";
 import { chooseNextStep } from "./next-step.js";
 import { formatUsd } from "./render-report-text.js";
@@ -67,6 +68,31 @@ describe("agreement per host", () => {
         comparedCount: 4,
         agreementRate: 0.75,
       },
+    ]);
+  });
+});
+
+describe("risk-gate suggestions per host", () => {
+  it("counts allow, askHuman, block and no suggestion for one mode", () => {
+    const suggestionRow = (
+      hostName: string,
+      suggestedChoice: string | null,
+      decisionCount: number,
+    ) => ({ hostName, decisionMode: "shadow", suggestedChoice, decisionCount });
+    expect(
+      riskGateSuggestions("shadow", [
+        suggestionRow("claude-agent-sdk", "askHuman", 2),
+        suggestionRow("ai-sdk", "allow", 5),
+        suggestionRow("ai-sdk", "block", 1),
+        suggestionRow("ai-sdk", null, 3),
+        suggestionRow("ai-sdk", "maybe", 1),
+        suggestionRow("__proto__", "allow", 1),
+        { ...suggestionRow("ai-sdk", "allow", 9), decisionMode: "enforce" },
+      ]),
+    ).toEqual([
+      { hostName: "__proto__", allow: 1, askHuman: 0, block: 0, noSuggestion: 0 },
+      { hostName: "ai-sdk", allow: 5, askHuman: 0, block: 1, noSuggestion: 4 },
+      { hostName: "claude-agent-sdk", allow: 0, askHuman: 2, block: 0, noSuggestion: 0 },
     ]);
   });
 });
@@ -256,6 +282,7 @@ function toolSelectionShadow(overrides: Partial<DecisionReport>): DecisionReport
       skippedExploration: 0,
     },
     agreementByHost: [],
+    suggestionsByHost: [],
     costSavedIfEnforced: {
       estimateKind: "estimated",
       tokensPerToolDefinition: 100,

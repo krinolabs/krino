@@ -165,6 +165,18 @@ describe("krino report on the fixture trace folders (both hosts, cut-offs, bad l
     ]);
   });
 
+  it("shows risk-gate suggestions per host instead of an agreement rate", async () => {
+    const report = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
+    const riskGate = report.decisions.find(
+      (decisionReport) => decisionReport.decisionKind === "riskGate",
+    );
+    expect(riskGate?.agreementByHost).toEqual([]);
+    expect(riskGate?.suggestionsByHost).toEqual([
+      { hostName: "ai-sdk", allow: 1, askHuman: 1, block: 0, noSuggestion: 0 },
+      { hostName: "claude-agent-sdk", allow: 0, askHuman: 1, block: 0, noSuggestion: 1 },
+    ]);
+  });
+
   it("counts cut-offs across decision kinds", async () => {
     const report = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
     expect(report.cutOffs).toEqual({ cutOffCount: 2, callCount: 12, cutOffShare: 0.166667 });

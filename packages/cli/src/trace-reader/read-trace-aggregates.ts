@@ -13,6 +13,7 @@ import {
   PER_STEP_AGREEMENT_SQL,
   RECORD_COUNTS_SQL,
   REMOVED_TOOL_TOKENS_SQL,
+  RISK_GATE_SUGGESTION_COUNTS_SQL,
   SUGGESTION_RUN_COUNTS_SQL,
   TRACE_LINES_TABLE,
 } from "./trace-queries.js";
@@ -84,6 +85,14 @@ export type SuggestionRunCountRow = {
   runCount: number;
 };
 
+export type RiskGateSuggestionRow = {
+  hostName: string;
+  decisionMode: string;
+  /** `null` when the decision has no suggestion. */
+  suggestedChoice: string | null;
+  decisionCount: number;
+};
+
 export type CacheUsageRow = {
   hostName: string;
   uncachedTokens: number;
@@ -102,6 +111,7 @@ export type TraceAggregates = {
   perRunAgreements: Array<AgreementRow>;
   removedToolTokens: Array<RemovedToolTokensRow>;
   suggestionRunCounts: Array<SuggestionRunCountRow>;
+  riskGateSuggestions: Array<RiskGateSuggestionRow>;
   cacheUsage: Array<CacheUsageRow>;
 };
 
@@ -123,6 +133,7 @@ export const EMPTY_TRACE_AGGREGATES: Readonly<TraceAggregates> = Object.freeze({
   perRunAgreements: [],
   removedToolTokens: [],
   suggestionRunCounts: [],
+  riskGateSuggestions: [],
   cacheUsage: [],
 });
 
@@ -143,6 +154,11 @@ function nullableNumberColumn(resultRow: ResultRow, columnName: string): number 
 function stringColumn(resultRow: ResultRow, columnName: string): string {
   const columnValue = readColumn(resultRow, columnName);
   return typeof columnValue === "string" ? columnValue : "";
+}
+
+function nullableStringColumn(resultRow: ResultRow, columnName: string): string | null {
+  const columnValue = readColumn(resultRow, columnName);
+  return typeof columnValue === "string" ? columnValue : null;
 }
 
 function stringListColumn(resultRow: ResultRow, columnName: string): Array<string> {
@@ -288,6 +304,14 @@ async function aggregateWithConnection(
       runCount: numberColumn(resultRow, "run_count"),
     }),
   );
+  const riskGateSuggestions = (await selectRows(connection, RISK_GATE_SUGGESTION_COUNTS_SQL)).map(
+    (resultRow) => ({
+      hostName: stringColumn(resultRow, "host_name"),
+      decisionMode: stringColumn(resultRow, "decision_mode"),
+      suggestedChoice: nullableStringColumn(resultRow, "suggested_choice"),
+      decisionCount: numberColumn(resultRow, "decision_count"),
+    }),
+  );
   const cacheUsage = (await selectRows(connection, CACHE_USAGE_SQL)).map((resultRow) => ({
     hostName: stringColumn(resultRow, "host_name"),
     uncachedTokens: numberColumn(resultRow, "uncached_tokens"),
@@ -305,6 +329,7 @@ async function aggregateWithConnection(
     perRunAgreements: agreementRows(await selectRows(connection, PER_RUN_AGREEMENT_SQL)),
     removedToolTokens,
     suggestionRunCounts,
+    riskGateSuggestions,
     cacheUsage,
   };
 }

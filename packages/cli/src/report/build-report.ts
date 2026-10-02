@@ -3,6 +3,7 @@ import type {
   AgreementRow,
   CacheUsageRow,
   DecisionStatusCountRow,
+  RiskGateSuggestionRow,
   TraceAggregates,
 } from "../trace-reader/read-trace-aggregates.js";
 import { chooseNextStep } from "./next-step.js";
@@ -14,6 +15,7 @@ import {
   type DecisionReport,
   type DecisionStatusCounts,
   type HostAgreement,
+  type HostRiskGateSuggestions,
   type KrinoReport,
   REPORT_SCHEMA_VERSION,
 } from "./report-types.js";
@@ -151,6 +153,39 @@ export function hostAgreements(
     .sort((left, right) => left.hostName.localeCompare(right.hostName));
 }
 
+/** Risk-gate suggestion counts per host, for one mode. Unknown verdicts count as no suggestion. */
+export function riskGateSuggestions(
+  decisionMode: string,
+  suggestionRows: ReadonlyArray<RiskGateSuggestionRow>,
+): Array<HostRiskGateSuggestions> {
+  const countsByHost = new Map<string, HostRiskGateSuggestions>();
+  for (const suggestionRow of suggestionRows) {
+    if (suggestionRow.decisionMode !== decisionMode) {
+      continue;
+    }
+    const hostCounts = countsByHost.get(suggestionRow.hostName) ?? {
+      hostName: suggestionRow.hostName,
+      allow: 0,
+      askHuman: 0,
+      block: 0,
+      noSuggestion: 0,
+    };
+    switch (suggestionRow.suggestedChoice) {
+      case "allow":
+      case "askHuman":
+      case "block":
+        hostCounts[suggestionRow.suggestedChoice] += suggestionRow.decisionCount;
+        break;
+      default:
+        hostCounts.noSuggestion += suggestionRow.decisionCount;
+    }
+    countsByHost.set(suggestionRow.hostName, hostCounts);
+  }
+  return [...countsByHost.values()].sort((left, right) =>
+    left.hostName.localeCompare(right.hostName),
+  );
+}
+
 type PricedSaving = {
   costSavedIfEnforced: CostSavedIfEnforced;
   pricedModels: Array<ModelPrice>;
@@ -261,6 +296,10 @@ function buildDecisionReports(
             traceAggregates.perRunAgreements,
           )
         : [],
+      suggestionsByHost:
+        decisionKind === "riskGate"
+          ? riskGateSuggestions(decisionMode, traceAggregates.riskGateSuggestions)
+          : [],
       costSavedIfEnforced: saving.costSavedIfEnforced,
       decisionCostInUsd,
       addedLatencyInMilliseconds: {

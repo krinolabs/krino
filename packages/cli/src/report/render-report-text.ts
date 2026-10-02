@@ -108,8 +108,21 @@ function decisionLines(textStyle: TextStyle, decisionReport: DecisionReport): Ar
     const [firstAgreement, ...otherAgreements] = agreementTexts;
     lines.push(labeled(textStyle, "Agreement", firstAgreement ?? "n/a: nothing to compare yet"));
     lines.push(...otherAgreements.map(continuation));
-  } else {
-    lines.push(labeled(textStyle, "Agreement", "n/a: traces do not record the host's verdict"));
+  } else if (decisionReport.decisionKind === "riskGate") {
+    // v0.1 traces do not record the host's permission outcome: show suggestions, not agreement.
+    const suggestionTexts = decisionReport.suggestionsByHost.map(
+      (hostSuggestions) =>
+        `${hostSuggestions.hostName.padEnd(HOST_LABEL_WIDTH)}` +
+        `allow ${formatCount(hostSuggestions.allow)} · ` +
+        `askHuman ${formatCount(hostSuggestions.askHuman)} · ` +
+        `block ${formatCount(hostSuggestions.block)}` +
+        (hostSuggestions.noSuggestion > 0
+          ? ` · none ${formatCount(hostSuggestions.noSuggestion)}`
+          : ""),
+    );
+    const [firstSuggestion, ...otherSuggestions] = suggestionTexts;
+    lines.push(labeled(textStyle, "Suggestions", firstSuggestion ?? "none recorded"));
+    lines.push(...otherSuggestions.map(continuation));
   }
 
   lines.push(

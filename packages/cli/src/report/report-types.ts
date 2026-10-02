@@ -72,8 +72,16 @@ export type DecisionReport = {
   /** Decisions that asked, or tried to ask, the provider: every status but `skippedUnsupported`. */
   callCount: number;
   statusCounts: DecisionStatusCounts;
-  /** One entry per host, each with its own metric. Empty when nothing could be compared. */
+  /**
+   * Tool selection: one entry per host, each with its own metric. Empty for the risk gate and
+   * when nothing could be compared.
+   */
   agreementByHost: Array<HostAgreement>;
+  /**
+   * Risk gate: what the gate suggested, per host. v0.1 traces do not record the host's real
+   * permission outcome, so there is no agreement rate. Empty for tool selection.
+   */
+  suggestionsByHost: Array<HostRiskGateSuggestions>;
   costSavedIfEnforced: CostSavedIfEnforced;
   /** What the decisions themselves cost (estimated by the runtime in v0.1). */
   decisionCostInUsd: number;
@@ -102,6 +110,15 @@ export type HostAgreement = {
   comparedCount: number;
   /** 0..1; `null` when `comparedCount` is 0. */
   agreementRate: number | null;
+};
+
+export type HostRiskGateSuggestions = {
+  hostName: string;
+  allow: number;
+  askHuman: number;
+  block: number;
+  /** No suggestion (for example, cut off before the answer). */
+  noSuggestion: number;
 };
 
 export type CostSavedIfEnforced =

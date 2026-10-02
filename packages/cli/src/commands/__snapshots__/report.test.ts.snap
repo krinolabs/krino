@@ -102,6 +102,7 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
         "skippedUnsupported": 0,
         "timedOut": 0,
       },
+      "suggestionsByHost": [],
     },
     {
       "addedLatencyInMilliseconds": {
@@ -143,6 +144,7 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
         "skippedUnsupported": 0,
         "timedOut": 0,
       },
+      "suggestionsByHost": [],
     },
     {
       "addedLatencyInMilliseconds": {
@@ -170,6 +172,22 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
         "skippedUnsupported": 0,
         "timedOut": 1,
       },
+      "suggestionsByHost": [
+        {
+          "allow": 1,
+          "askHuman": 1,
+          "block": 0,
+          "hostName": "ai-sdk",
+          "noSuggestion": 0,
+        },
+        {
+          "allow": 0,
+          "askHuman": 1,
+          "block": 0,
+          "hostName": "claude-agent-sdk",
+          "noSuggestion": 1,
+        },
+      ],
     },
   ],
   "filters": {
@@ -303,6 +321,7 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
         "skippedUnsupported": 0,
         "timedOut": 0,
       },
+      "suggestionsByHost": [],
     },
     {
       "addedLatencyInMilliseconds": {
@@ -344,6 +363,7 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
         "skippedUnsupported": 0,
         "timedOut": 0,
       },
+      "suggestionsByHost": [],
     },
     {
       "addedLatencyInMilliseconds": {
@@ -371,6 +391,22 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
         "skippedUnsupported": 0,
         "timedOut": 1,
       },
+      "suggestionsByHost": [
+        {
+          "allow": 1,
+          "askHuman": 1,
+          "block": 0,
+          "hostName": "ai-sdk",
+          "noSuggestion": 0,
+        },
+        {
+          "allow": 0,
+          "askHuman": 1,
+          "block": 0,
+          "hostName": "claude-agent-sdk",
+          "noSuggestion": 1,
+        },
+      ],
     },
   ],
   "filters": {
@@ -425,7 +461,8 @@ Tool selection · enforce
 
 Risk gate · shadow
   Calls              4 (answered 2, timed out 1, cut off 1)
-  Agreement          n/a: traces do not record the host's verdict
+  Suggestions        ai-sdk            allow 1 · askHuman 1 · block 0
+                     claude-agent-sdk  allow 0 · askHuman 1 · block 0 · none 1
   Saved if enforced  n/a. The risk gate saves review time, not tokens, and runs in shadow mode only in v0.1.
   Decision cost      $0.0004
   Added latency      p50 0 ms · p95 0 ms
