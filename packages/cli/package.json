@@ -1,0 +1,46 @@
+{
+  "name": "@krinolabs/cli",
+  "version": "0.0.0",
+  "description": "CLI for krino: reports, benchmarks, and setup checks.",
+  "keywords": [
+    "ai",
+    "agents",
+    "llm",
+    "ai-sdk",
+    "claude-agent-sdk",
+    "anthropic",
+    "tool-calling",
+    "prompt-caching"
+  ],
+  "homepage": "https://github.com/krinolabs/krino#readme",
+  "bugs": {
+    "url": "https://github.com/krinolabs/krino/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krinolabs/krino.git",
+    "directory": "packages/cli"
+  },
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "krino": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
