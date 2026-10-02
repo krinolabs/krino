@@ -13,7 +13,7 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
         "verifiedOn": "2026-10-02",
       },
     ],
-    "tokensPerToolDefinition": 150,
+    "tokensPerToolDefinition": 175,
   },
   "cacheHealth": {
     "byHost": [
@@ -81,9 +81,10 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
       "costSavedIfEnforced": {
         "decisionCostInUsd": 0.0016,
         "estimateKind": "estimated",
-        "grossSavingInUsd": 0.004179624,
-        "netSavingInUsd": 0.002579624,
+        "grossSavingInUsd": 0.004876228,
+        "netSavingInUsd": 0.003276228,
         "suggestionRunCount": 5,
+        "tokensPerToolDefinition": 175,
         "unpricedModelIdentifiers": [],
       },
       "decisionCostInUsd": 0.0016,
@@ -121,9 +122,10 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
       "costSavedIfEnforced": {
         "decisionCostInUsd": 0.0006,
         "estimateKind": "estimated",
-        "grossSavingInUsd": 0.000944656,
-        "netSavingInUsd": 0.000344656,
+        "grossSavingInUsd": 0.001102099,
+        "netSavingInUsd": 0.000502099,
         "suggestionRunCount": 2,
+        "tokensPerToolDefinition": 175,
         "unpricedModelIdentifiers": [],
       },
       "decisionCostInUsd": 0.0006,
@@ -212,7 +214,7 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
         "verifiedOn": "2026-10-02",
       },
     ],
-    "tokensPerToolDefinition": 150,
+    "tokensPerToolDefinition": 175,
   },
   "cacheHealth": {
     "byHost": [
@@ -280,9 +282,10 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
       "costSavedIfEnforced": {
         "decisionCostInUsd": 0.0013,
         "estimateKind": "estimated",
-        "grossSavingInUsd": 0.003649267,
-        "netSavingInUsd": 0.002349267,
+        "grossSavingInUsd": 0.004257478,
+        "netSavingInUsd": 0.002957478,
         "suggestionRunCount": 4,
+        "tokensPerToolDefinition": 175,
         "unpricedModelIdentifiers": [],
       },
       "decisionCostInUsd": 0.0013,
@@ -320,9 +323,10 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
       "costSavedIfEnforced": {
         "decisionCostInUsd": 0.0006,
         "estimateKind": "estimated",
-        "grossSavingInUsd": 0.000944656,
-        "netSavingInUsd": 0.000344656,
+        "grossSavingInUsd": 0.001102099,
+        "netSavingInUsd": 0.000502099,
         "suggestionRunCount": 2,
+        "tokensPerToolDefinition": 175,
         "unpricedModelIdentifiers": [],
       },
       "decisionCostInUsd": 0.0006,
@@ -407,7 +411,7 @@ Tool selection · shadow
   Calls              7 (answered 5, failed 1, cut off 1)
   Agreement          ai-sdk            80.0% (4/5 steps whose called tools were all in the suggested set)
                      claude-agent-sdk  50.0% (1/2 runs whose used tools were all in the suggested set)
-  Saved if enforced  $0.0026 net ($0.0042 input incl. cache − $0.0016 decisions, 5 runs; estimate)
+  Saved if enforced  estimated* $0.0033 net ($0.0049 input incl. cache − $0.0016 decisions, 5 runs)
   Added latency      p50 0 ms · p95 0 ms
   Decision latency   p50 235 ms · p95 403 ms
 
@@ -415,7 +419,7 @@ Tool selection · enforce
   Calls              2 (answered 1, exploration 1)
   Agreement          ai-sdk            0.0% (0/1 steps whose called tools were all in the suggested set)
                      measured on exploration runs only
-  Saved if enforced  $0.0003 net ($0.0009 input incl. cache − $0.0006 decisions, 2 runs; estimate)
+  Saved if enforced  estimated* $0.0005 net ($0.0011 input incl. cache − $0.0006 decisions, 2 runs)
   Added latency      p50 150 ms · p95 285 ms
   Decision latency   p50 290 ms · p95 299 ms
 
@@ -435,6 +439,7 @@ Cache health (input tokens)
 Cut-offs: 2 of 13 calls (15.4%)
 
 Next step: 15% of decisions were cut off: await finishRun (or flushAll) before the process exits.
-Savings assume 150 tokens per tool definition; prices verified on: claude-haiku-4-5 2026-10-02, claude-sonnet-5-5 2026-10-02.
+
+* Estimated savings assume 175 tokens per tool definition (--tokens-per-tool); traces do not record tool-definition sizes. Prices verified on: claude-haiku-4-5 2026-10-02, claude-sonnet-5-5 2026-10-02.
 "
 `;

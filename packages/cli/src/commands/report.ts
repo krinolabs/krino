@@ -4,6 +4,7 @@ import { defineCommand } from "citty";
 import { renderBanner } from "../banner/krino-banner.js";
 import { buildReport } from "../report/build-report.js";
 import { parseSince } from "../report/parse-since.js";
+import { parseTokensPerTool } from "../report/parse-tokens-per-tool.js";
 import { renderReportText } from "../report/render-report-text.js";
 import type { KrinoReport } from "../report/report-types.js";
 import { createTextStyle, supportsColor } from "../terminal/text-style.js";
@@ -13,9 +14,10 @@ import { resolveTraceLocation } from "../trace-reader/trace-directory.js";
 
 /**
  * Traces do not record how many prompt tokens a tool definition takes, so the saving estimate
- * assumes this many per tool. Shown in every report.
+ * assumes this many per tool (`--tokens-per-tool`). Measured from the bench catalog:
+ * 17,518 tokens for 100 tool definitions. Shown in every report.
  */
-export const DEFAULT_TOKENS_PER_TOOL_DEFINITION = 150;
+export const DEFAULT_TOKENS_PER_TOOL_DEFINITION = 175;
 
 export const DEFAULT_SINCE = "7d";
 
@@ -25,6 +27,8 @@ export type ReportOptions = {
   sinceText: string;
   /** `--trace-dir`; `null` falls back to `$KRINO_TRACE_DIRECTORY`, then the default folder. */
   traceDirectory: string | null;
+  /** `--tokens-per-tool`, as typed; checked by `createReport`. */
+  tokensPerToolText: string;
 };
 
 /** Everything `krino report` takes from its surroundings. Injectable for tests. */
@@ -36,7 +40,6 @@ export type ReportDependencies = {
   now: () => Date;
   listDirectory?: ListDirectory;
   modelPrices: ReadonlyArray<ModelPrice>;
-  tokensPerToolDefinition: number;
 };
 
 export type ReportOutput = {
@@ -53,7 +56,6 @@ export function defaultReportDependencies(): ReportDependencies {
     workingDirectory: () => process.cwd(),
     now: () => new Date(),
     modelPrices: DEFAULT_MODEL_PRICES,
-    tokensPerToolDefinition: DEFAULT_TOKENS_PER_TOOL_DEFINITION,
   };
 }
 
@@ -72,6 +74,11 @@ export async function createReport(
     return { resultKind: "invalidOptions", message: sinceResult.message };
   }
   const { since } = sinceResult;
+  const tokensPerToolResult = parseTokensPerTool(reportOptions.tokensPerToolText);
+  if (tokensPerToolResult.parseKind === "invalid") {
+    return { resultKind: "invalidOptions", message: tokensPerToolResult.message };
+  }
+  const { tokensPerToolDefinition } = tokensPerToolResult;
   const projectName =
     reportOptions.projectName === null || reportOptions.projectName.trim() === ""
       ? null
@@ -92,7 +99,7 @@ export async function createReport(
   const traceAggregates = await readTraceAggregates(traceFilePaths, {
     projectName,
     sinceEpochMilliseconds: since.getTime(),
-    tokensPerToolDefinition: dependencies.tokensPerToolDefinition,
+    tokensPerToolDefinition,
   });
   return {
     resultKind: "report",
@@ -101,7 +108,7 @@ export async function createReport(
       since,
       generatedAt,
       traceDirectory: traceLocation.directoryPath,
-      tokensPerToolDefinition: dependencies.tokensPerToolDefinition,
+      tokensPerToolDefinition,
       modelPrices: dependencies.modelPrices,
     }),
   };
@@ -162,6 +169,11 @@ export const reportCommand = defineCommand({
       description: "Only records since this duration (12h, 7d, 2w) or ISO date",
       default: DEFAULT_SINCE,
     },
+    "tokens-per-tool": {
+      type: "string",
+      description: "Prompt tokens per tool definition, for the estimated saving",
+      default: String(DEFAULT_TOKENS_PER_TOOL_DEFINITION),
+    },
     json: {
       type: "boolean",
       description: "Print the report as JSON (stable shape, reportSchemaVersion 1)",
@@ -174,6 +186,7 @@ export const reportCommand = defineCommand({
         projectName: args.project ?? null,
         sinceText: args.since,
         traceDirectory: args["trace-dir"] ?? null,
+        tokensPerToolText: args["tokens-per-tool"],
         json: args.json,
       },
       {

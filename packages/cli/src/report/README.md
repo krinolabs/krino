@@ -145,7 +145,7 @@ money is USD (rounded to 9 decimals), latency is milliseconds. `null` means "no 
   "cutOffs": { "cutOffCount": 2, "callCount": 12, "cutOffShare": 0.166667 },
   "nextStep": "17% of decisions were cut off: await finishRun (or flushAll) before the process exits.",
   "assumptions": {
-    "tokensPerToolDefinition": 150,
+    "tokensPerToolDefinition": 175,
     "modelPrices": [{ "modelIdentifier": "claude-haiku-4-5", "verifiedOn": "2026-10-02" }]
   }
 }

@@ -106,7 +106,10 @@ export type HostAgreement = {
 
 export type CostSavedIfEnforced =
   | {
+      /** Always an estimate: traces do not record tool-definition sizes. */
       estimateKind: "estimated";
+      /** The assumption behind the estimate (`--tokens-per-tool`, default 175). */
+      tokensPerToolDefinition: number;
       /**
        * Main-model input cost removed by sending only the suggested tools on every step,
        * priced at each step's mix of uncached, cache-read and cache-write tokens.
@@ -151,7 +154,10 @@ export type CutOffSummary = {
 };
 
 export type ReportAssumptions = {
-  /** Traces do not record tool-definition sizes; the saving estimate assumes this many tokens. */
+  /**
+   * Traces do not record tool-definition sizes; the saving estimate assumes this many tokens
+   * per tool (`--tokens-per-tool`, default 175, measured from the bench catalog).
+   */
   tokensPerToolDefinition: number;
   /** The price table rows used, with the date each was checked. */
   modelPrices: Array<{ modelIdentifier: string; verifiedOn: string }>;

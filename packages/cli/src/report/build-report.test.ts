@@ -104,6 +104,7 @@ describe("cost saved if enforced", () => {
     // 1000 × 2 + 10,000 × 0.2 + 2000 × 2.5 = 9000 per million tokens = $0.009.
     expect(report.decisions[0]?.costSavedIfEnforced).toEqual({
       estimateKind: "estimated",
+      tokensPerToolDefinition: 100,
       grossSavingInUsd: 0.009,
       decisionCostInUsd: 0.0002,
       netSavingInUsd: 0.0088,
@@ -257,6 +258,7 @@ function toolSelectionShadow(overrides: Partial<DecisionReport>): DecisionReport
     agreementByHost: [],
     costSavedIfEnforced: {
       estimateKind: "estimated",
+      tokensPerToolDefinition: 100,
       grossSavingInUsd: 0.05,
       decisionCostInUsd: 0.01,
       netSavingInUsd: 0.04,
@@ -344,6 +346,7 @@ describe("chooseNextStep", () => {
           agreementByHost: [hostAgreement("ai-sdk", 50, 50)],
           costSavedIfEnforced: {
             estimateKind: "estimated",
+            tokensPerToolDefinition: 100,
             grossSavingInUsd: 0.001,
             decisionCostInUsd: 0.01,
             netSavingInUsd: -0.009,

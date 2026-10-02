@@ -75,9 +75,10 @@ function savingText(costSavedIfEnforced: CostSavedIfEnforced): string {
     return `n/a: no priced main-model usage (decision cost ${formatUsd(decisionCostInUsd)})`;
   }
   const runWord = suggestionRunCount === 1 ? "run" : "runs";
+  // The asterisk points at the footer, which states the tokens-per-tool assumption.
   return (
-    `${formatUsd(netSavingInUsd)} net (${formatUsd(grossSavingInUsd)} input incl. cache ` +
-    `− ${formatUsd(decisionCostInUsd)} decisions, ${formatCount(suggestionRunCount)} ${runWord}; estimate)`
+    `estimated* ${formatUsd(netSavingInUsd)} net (${formatUsd(grossSavingInUsd)} input incl. ` +
+    `cache − ${formatUsd(decisionCostInUsd)} decisions, ${formatCount(suggestionRunCount)} ${runWord})`
   );
 }
 
@@ -186,14 +187,19 @@ export function renderReportText(report: KrinoReport, textStyle: TextStyle): str
     "",
     `${textStyle.bold(textStyle.accent("Next step"))}: ${report.nextStep}`,
   );
-  if (report.assumptions.modelPrices.length > 0) {
+  const hasEstimate = report.decisions.some(
+    (decisionReport) => decisionReport.costSavedIfEnforced.estimateKind === "estimated",
+  );
+  if (hasEstimate) {
     const priceDates = report.assumptions.modelPrices
       .map((modelPrice) => `${modelPrice.modelIdentifier} ${modelPrice.verifiedOn}`)
       .join(", ");
     lines.push(
+      "",
       textStyle.dim(
-        `Savings assume ${report.assumptions.tokensPerToolDefinition} tokens per tool definition; ` +
-          `prices verified on: ${priceDates}.`,
+        `* Estimated savings assume ${report.assumptions.tokensPerToolDefinition} tokens per tool ` +
+          "definition (--tokens-per-tool); traces do not record tool-definition sizes." +
+          (priceDates === "" ? "" : ` Prices verified on: ${priceDates}.`),
       ),
     );
   }

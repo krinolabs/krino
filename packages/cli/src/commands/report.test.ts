@@ -30,7 +30,6 @@ function fixtureDependencies(overrides: Partial<ReportDependencies> = {}): Repor
     workingDirectory: () => FIXTURE_HOME,
     now: () => FIXTURE_NOW,
     modelPrices: DEFAULT_MODEL_PRICES,
-    tokensPerToolDefinition: DEFAULT_TOKENS_PER_TOOL_DEFINITION,
     ...overrides,
   };
 }
@@ -42,9 +41,15 @@ function portablePath(text: string): string {
 
 type CapturedRun = { exitCode: number; output: string; errorOutput: string };
 
-/** `--trace-dir` is optional in tests: `null` unless given. */
-type TestReportOptions = Omit<ReportOptions, "traceDirectory"> & {
+/** `--trace-dir` and `--tokens-per-tool` are optional in tests, as on the command line. */
+type TestReportOptions = Omit<ReportOptions, "traceDirectory" | "tokensPerToolText"> & {
   traceDirectory?: string | null;
+  tokensPerToolText?: string;
+};
+
+const OPTION_DEFAULTS = {
+  traceDirectory: null,
+  tokensPerToolText: String(DEFAULT_TOKENS_PER_TOOL_DEFINITION),
 };
 
 async function runCaptured(
@@ -54,7 +59,7 @@ async function runCaptured(
   let output = "";
   let errorOutput = "";
   const exitCode = await runReport(
-    { traceDirectory: null, ...reportOptions },
+    { ...OPTION_DEFAULTS, ...reportOptions },
     {
       writeOutput: (text) => {
         output += text;
@@ -74,7 +79,7 @@ async function reportFor(
   dependencyOverrides: Partial<ReportDependencies> = {},
 ): Promise<KrinoReport> {
   const reportResult = await createReport(
-    { traceDirectory: null, ...reportOptions },
+    { ...OPTION_DEFAULTS, ...reportOptions },
     fixtureDependencies(dependencyOverrides),
   );
   if (reportResult.resultKind !== "report") {
@@ -167,7 +172,12 @@ describe("krino report on the fixture trace folders (both hosts, cut-offs, bad l
   });
 
   it("prices the saving with cache read and write tokens", async () => {
-    const report = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
+    // Hand-computed with 150 tokens per tool.
+    const report = await reportFor({
+      projectName: "fixture-project",
+      sinceText: "7d",
+      tokensPerToolText: "150",
+    });
     const shadowSaving = report.decisions.find(
       (decisionReport) =>
         decisionReport.decisionKind === "toolSelection" && decisionReport.decisionMode === "shadow",
@@ -299,7 +309,7 @@ describe("which trace folder is read", () => {
     vi.stubEnv("USERPROFILE", FIXTURE_HOME);
     try {
       const reportResult = await createReport(
-        { projectName: "fixture-project", sinceText: "7d", traceDirectory: null },
+        { ...OPTION_DEFAULTS, projectName: "fixture-project", sinceText: "7d" },
         { ...defaultReportDependencies(), now: () => FIXTURE_NOW },
       );
       if (reportResult.resultKind !== "report") {
@@ -333,6 +343,55 @@ describe("which trace folder is read", () => {
 });
 
 describe("krino report options and failures", () => {
+  it("defaults to 175 tokens per tool and labels the saving an estimate", async () => {
+    const report = await reportFor({ projectName: "fixture-project", sinceText: "7d" });
+    expect(report.assumptions.tokensPerToolDefinition).toBe(175);
+    expect(report.decisions[0]?.costSavedIfEnforced).toMatchObject({
+      estimateKind: "estimated",
+      tokensPerToolDefinition: 175,
+    });
+  });
+
+  it("scales the estimated saving with --tokens-per-tool", async () => {
+    const grossSaving = async (tokensPerToolText: string): Promise<number> => {
+      const report = await reportFor({
+        projectName: "fixture-project",
+        sinceText: "7d",
+        tokensPerToolText,
+      });
+      const saving = report.decisions[0]?.costSavedIfEnforced;
+      if (saving?.estimateKind !== "estimated" || saving.grossSavingInUsd === null) {
+        throw new Error("expected an estimated saving");
+      }
+      return saving.grossSavingInUsd;
+    };
+    // The fixtures never hit the input-token cap, so the saving is linear in tokens per tool.
+    expect(await grossSaving("300")).toBeCloseTo((await grossSaving("150")) * 2, 9);
+  });
+
+  it("shows the assumption in the text footer", async () => {
+    const capturedRun = await runCaptured({
+      projectName: "fixture-project",
+      sinceText: "7d",
+      tokensPerToolText: "80",
+      json: false,
+    });
+    expect(capturedRun.output).toContain(
+      "* Estimated savings assume 80 tokens per tool definition (--tokens-per-tool)",
+    );
+  });
+
+  it("rejects a bad --tokens-per-tool with exit code 1", async () => {
+    const capturedRun = await runCaptured({
+      projectName: null,
+      sinceText: "7d",
+      tokensPerToolText: "lots",
+      json: false,
+    });
+    expect(capturedRun.exitCode).toBe(1);
+    expect(capturedRun.errorOutput).toContain('--tokens-per-tool "lots"');
+  });
+
   it("rejects a bad --since with exit code 1", async () => {
     const capturedRun = await runCaptured({ projectName: null, sinceText: "soon", json: false });
     expect(capturedRun.exitCode).toBe(1);

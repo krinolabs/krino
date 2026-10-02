@@ -160,8 +160,9 @@ function toolSelectionSaving(
   decisionMode: string,
   decisionCostInUsd: number,
   traceAggregates: TraceAggregates,
-  modelPrices: ReadonlyArray<ModelPrice>,
+  reportContext: ReportContext,
 ): PricedSaving {
+  const { modelPrices } = reportContext;
   const suggestionRunCount = traceAggregates.suggestionRunCounts
     .filter((countRow) => countRow.decisionMode === decisionMode)
     .reduce((runTotal, countRow) => runTotal + countRow.runCount, 0);
@@ -193,6 +194,7 @@ function toolSelectionSaving(
   return {
     costSavedIfEnforced: {
       estimateKind: "estimated",
+      tokensPerToolDefinition: reportContext.tokensPerToolDefinition,
       grossSavingInUsd,
       decisionCostInUsd,
       netSavingInUsd:
@@ -206,7 +208,7 @@ function toolSelectionSaving(
 
 function buildDecisionReports(
   traceAggregates: TraceAggregates,
-  modelPrices: ReadonlyArray<ModelPrice>,
+  reportContext: ReportContext,
 ): { decisionReports: Array<DecisionReport>; pricedModels: Array<ModelPrice> } {
   const statusRowsByGroup = new Map<string, Array<DecisionStatusCountRow>>();
   for (const statusRow of traceAggregates.decisionStatusCounts) {
@@ -237,7 +239,7 @@ function buildDecisionReports(
     );
     const isToolSelection = decisionKind === "toolSelection";
     const saving: PricedSaving = isToolSelection
-      ? toolSelectionSaving(decisionMode, decisionCostInUsd, traceAggregates, modelPrices)
+      ? toolSelectionSaving(decisionMode, decisionCostInUsd, traceAggregates, reportContext)
       : {
           costSavedIfEnforced: {
             estimateKind: "notApplicable",
@@ -327,10 +329,7 @@ export function buildReport(
   reportContext: ReportContext,
 ): KrinoReport {
   const { lineCounts } = traceAggregates;
-  const { decisionReports, pricedModels } = buildDecisionReports(
-    traceAggregates,
-    reportContext.modelPrices,
-  );
+  const { decisionReports, pricedModels } = buildDecisionReports(traceAggregates, reportContext);
   const callCount = decisionReports.reduce(
     (callTotal, decisionReport) => callTotal + decisionReport.callCount,
     0,
