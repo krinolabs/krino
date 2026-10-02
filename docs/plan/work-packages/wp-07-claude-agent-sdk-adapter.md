@@ -9,6 +9,10 @@
 - **Owns:** `packages/krino/src/adapters/claude-agent-sdk/**`.
 - **Main model rule:** `RunSummaryTrace.modelIdentifier` = the `model` option passed to
   `query()`; if absent, the model with the most input tokens in the result's usage.
+- **Run-start step rule:** Run start counts as `stepNumber: 0`: the run-start
+  `decideToolSelection` call and its trace use `stepNumber: 0`. Risk checks from `PreToolUse`
+  use `stepNumber` = the 1-based index of the tool call within the run, because the Agent SDK
+  does not expose turns.
 - **Deliverables:**
   - `krinoAgentOptions(queryOptions, krinoRuntime, taskText)` returns options for `query()`:
     - **Run start:** `decideToolSelection`; enforce mode sets `allowedTools` (merged with the user's list; never widens it).
@@ -17,6 +21,8 @@
   - `observeKrinoMessages(messageStream, runHandle)`: reads `result` messages for total usage and cost; writes the run summary; calls `finishRun`.
   - Capabilities: `{ supportedDecisions: ['toolSelection', 'riskGate'], toolSelectionTiming: 'runStartOnly', reportsPerStepUsage: false }`.
   - Shadow agreement metric for this host: "all used tools are inside the suggested set", written in the run summary.
+  - Never index a plain object with an external string (tool names, MCP data). Use a Map
+    or check `Object.hasOwn` first. Test with `'constructor'`, `'toString'`, and `'__proto__'`.
 - **Acceptance:**
   - [ ] Tests run without network (mock the SDK's message stream and hook calls).
   - [ ] Enforce mode never adds a tool the user did not allow.

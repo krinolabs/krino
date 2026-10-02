@@ -15,6 +15,8 @@
     - Reads per-step usage, including Anthropic cache tokens from provider metadata. **Verify the metadata keys for your AI SDK version.**
     - Calls `finishRun` when the run ends (success, error, or abort).
   - Capabilities: `{ supportedDecisions: ['toolSelection', 'riskGate'], toolSelectionTiming: 'perStep', reportsPerStepUsage: true }`.
+  - Never index a plain object with an external string (tool names, MCP data). Use a Map
+    or check `Object.hasOwn` first. Test with `'constructor'`, `'toString'`, and `'__proto__'`.
 - **Acceptance:**
   - [ ] Tests with the AI SDK mock language model (no network): shadow sends all tools; enforce sends the selected tools on step 0 only.
   - [ ] Cache trap guard test: across a 5-step run in enforce mode, the tool list is identical on steps 1–4.
