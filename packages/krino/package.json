@@ -55,7 +55,8 @@
     "test": "vitest run",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "smoke:jev": "tsup && tsc -p scripts/tsconfig.json && node --experimental-strip-types scripts/smoke-jev.ts"
+    "smoke:jev": "tsup && tsc -p scripts/tsconfig.json && node --experimental-strip-types scripts/smoke-jev.ts",
+    "live:ai-sdk": "tsup && tsc -p scripts/tsconfig.json && node --experimental-strip-types scripts/live-ai-sdk.ts"
   },
   "peerDependencies": {
     "@anthropic-ai/claude-agent-sdk": ">=0.3.0",
