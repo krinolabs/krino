@@ -1,0 +1,7 @@
+{
+  "source": "schema",
+  "status": 401,
+  "body": {
+    "error": { "message": "[redacted]", "type": "authentication_error" }
+  }
+}

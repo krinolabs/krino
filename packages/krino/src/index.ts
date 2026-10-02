@@ -1,3 +1,26 @@
+import type { CreateKrino } from "./contracts/index.js";
+import { createKrinoRuntime } from "./core/index.js";
+import { createFakeDecisionProvider } from "./providers/fake/index.js";
+
 export * from "./contracts/index.js";
-export { costFromUsage, createKrino, encodeToolNameChoice } from "./core/index.js";
+export { costFromUsage, encodeToolNameChoice } from "./core/index.js";
 export { DEFAULT_MODEL_PRICES, findModelPrice } from "./pricing/index.js";
+export {
+  createFakeDecisionProvider,
+  FAKE_DECISION_MODEL_VERSION,
+  FAKE_PROVIDER_NAME,
+  type FakeAnswer,
+  type FakeAnswerFunction,
+  type FakeCallOutcome,
+  type FakeDecisionProvider,
+  type FakeDecisionProviderOptions,
+  type FakeErrorInjection,
+  type FakeProviderCall,
+  type UnscriptedQuestionRule,
+} from "./providers/fake/index.js";
+
+/** Validates the config, applies defaults and returns the runtime. Default provider: the fake. */
+export const createKrino: CreateKrino = (krinoConfig) =>
+  createKrinoRuntime(krinoConfig, {
+    createDefaultDecisionProvider: () => createFakeDecisionProvider(),
+  });
