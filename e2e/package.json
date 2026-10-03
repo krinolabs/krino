@@ -1,6 +1,16 @@
 {
   "name": "@krinolabs/e2e",
   "version": "0.0.0",
+  "description": "End-to-end QA: packs @krinolabs/krino and @krinolabs/cli, installs the tarballs into a temp consumer project and runs them. Not published.",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  }
 }
