@@ -4,6 +4,7 @@ packages:
   - bench
   - bench-runner
   - e2e
+  - docs
   - tooling/*
 
 # Optional peers (ai, @anthropic-ai/claude-agent-sdk) stay out of the dev tree

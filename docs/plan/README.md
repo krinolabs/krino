@@ -17,6 +17,7 @@
 | [`shared/05-review-checklist.md`](./shared/05-review-checklist.md) | PR review checklist |
 | [`shared/06-open-items.md`](./shared/06-open-items.md) | APIs to verify |
 | [`shared/07-timeline.md`](./shared/07-timeline.md) | Weekend timeline |
+| [`release-checklist.md`](./release-checklist.md) | v0.1.0 release steps, in order |
 | `work-packages/wp-XX-*.md` | One file per agent task, with its own kickoff prompt |
 
 ## 🧭 How to use it
