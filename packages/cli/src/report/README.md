@@ -63,12 +63,16 @@ Every non-blank line is checked. A line is skipped and counted when it:
   v0.1; shadow calls, exploration calls and every risk-gate call add 0 ms.
 - **Decision latency**: how long the provider took (`latencyInMilliseconds`).
 - **Cache health**: input tokens of each run (its run summary, else the sum of its steps), split
-  into cache read, cache write and uncached.
+  into cache read, cache write and uncached. Shown twice, overall and per host: for all runs, and
+  for multi-step runs only (`cacheHealth.multiStepRuns`). A run is multi-step when its summary's
+  `stepCount` (else its number of step records) is above 1. A one-step run cannot read from the
+  cache, so the multi-step share is the one to judge caching by; `krino doctor` warns on the same
+  share, and a parity test checks that both compute the same numbers.
 - **Cut-offs**: decisions with status `cutOff`, over all calls.
 - **Next step**: the first rule that applies: no traces → no matching records → cut-off share
   above 5% → tool-selection agreement (at least 20 compared samples per host; 90% or more and a
-  positive net saving suggests enforce on step 0) → cache read share below 50% → nothing to
-  change.
+  positive net saving suggests enforce on step 0) → cache read share of multi-step runs below
+  50% → nothing to change.
 
 ## JSON shape (`reportSchemaVersion: 1`)
 
@@ -144,7 +148,12 @@ money is USD (rounded to 9 decimals), latency is milliseconds. `null` means "no 
       "cacheWriteShare": 0.347113,
       "uncachedShare": 0.096457
     },
-    "byHost": [{ "hostName": "ai-sdk", "...": "same fields as overall" }]
+    "byHost": [{ "hostName": "ai-sdk", "...": "same fields as overall" }],
+    "multiStepRuns": {                 // added in reportSchemaVersion 1 (additive)
+      "runCount": 6,                   // multi-step runs, counted once per host they used
+      "overall": { "...": "same fields as cacheHealth.overall" },
+      "byHost": [{ "hostName": "ai-sdk", "runCount": 3, "...": "same fields as overall" }]
+    }
   },
   "cutOffs": { "cutOffCount": 2, "callCount": 12, "cutOffShare": 0.166667 },
   "nextStep": "17% of decisions were cut off: await finishRun (or flushAll) before the process exits.",

@@ -38,6 +38,42 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
         "uncachedTokens": 1200,
       },
     ],
+    "multiStepRuns": {
+      "byHost": [
+        {
+          "cacheReadShare": 0.473804,
+          "cacheReadTokens": 10400,
+          "cacheWriteShare": 0.343964,
+          "cacheWriteTokens": 7550,
+          "hostName": "ai-sdk",
+          "runCount": 3,
+          "totalInputTokens": 21950,
+          "uncachedShare": 0.182232,
+          "uncachedTokens": 4000,
+        },
+        {
+          "cacheReadShare": 0.692641,
+          "cacheReadTokens": 32000,
+          "cacheWriteShare": 0.281385,
+          "cacheWriteTokens": 13000,
+          "hostName": "claude-agent-sdk",
+          "runCount": 3,
+          "totalInputTokens": 46200,
+          "uncachedShare": 0.025974,
+          "uncachedTokens": 1200,
+        },
+      ],
+      "overall": {
+        "cacheReadShare": 0.622157,
+        "cacheReadTokens": 42400,
+        "cacheWriteShare": 0.301541,
+        "cacheWriteTokens": 20550,
+        "totalInputTokens": 68150,
+        "uncachedShare": 0.076302,
+        "uncachedTokens": 5200,
+      },
+      "runCount": 6,
+    },
     "overall": {
       "cacheReadShare": 0.536709,
       "cacheReadTokens": 42400,
@@ -257,6 +293,42 @@ exports[`krino report on the fixture trace folders (both hosts, cut-offs, bad li
         "uncachedTokens": 1200,
       },
     ],
+    "multiStepRuns": {
+      "byHost": [
+        {
+          "cacheReadShare": 0.473804,
+          "cacheReadTokens": 10400,
+          "cacheWriteShare": 0.343964,
+          "cacheWriteTokens": 7550,
+          "hostName": "ai-sdk",
+          "runCount": 3,
+          "totalInputTokens": 21950,
+          "uncachedShare": 0.182232,
+          "uncachedTokens": 4000,
+        },
+        {
+          "cacheReadShare": 0.692641,
+          "cacheReadTokens": 32000,
+          "cacheWriteShare": 0.281385,
+          "cacheWriteTokens": 13000,
+          "hostName": "claude-agent-sdk",
+          "runCount": 3,
+          "totalInputTokens": 46200,
+          "uncachedShare": 0.025974,
+          "uncachedTokens": 1200,
+        },
+      ],
+      "overall": {
+        "cacheReadShare": 0.622157,
+        "cacheReadTokens": 42400,
+        "cacheWriteShare": 0.301541,
+        "cacheWriteTokens": 20550,
+        "totalInputTokens": 68150,
+        "uncachedShare": 0.076302,
+        "uncachedTokens": 5200,
+      },
+      "runCount": 6,
+    },
     "overall": {
       "cacheReadShare": 0.55643,
       "cacheReadTokens": 42400,
@@ -469,8 +541,13 @@ Risk gate · shadow
   Decision latency   p50 240 ms · p95 744 ms
 
 Cache health (input tokens)
+All runs
   all hosts          read 53.7% · written 36.0% · uncached 10.3% (79,000 tokens)
   ai-sdk             read 31.7% · written 47.1% · uncached 21.2% (32,800 tokens)
+  claude-agent-sdk   read 69.3% · written 28.1% · uncached 2.6% (46,200 tokens)
+Multi-step runs only (6 runs)
+  all hosts          read 62.2% · written 30.2% · uncached 7.6% (68,150 tokens)
+  ai-sdk             read 47.4% · written 34.4% · uncached 18.2% (21,950 tokens)
   claude-agent-sdk   read 69.3% · written 28.1% · uncached 2.6% (46,200 tokens)
 
 Cut-offs: 2 of 13 calls (15.4%)

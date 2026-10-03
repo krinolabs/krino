@@ -240,16 +240,31 @@ describe("checkCutOffRate", () => {
 });
 
 describe("checkCacheHealth", () => {
+  // The check reads `multiStepRunUsage`; the per-host multi-step fields do not matter here.
+  const noMultiStepUsage = {
+    multiStepRunCount: 0,
+    multiStepUncachedTokens: 0,
+    multiStepCacheReadTokens: 0,
+    multiStepCacheWriteTokens: 0,
+  };
+
   function usage(uncachedTokens: number, cacheReadTokens: number, cacheWriteTokens: number) {
     return summaryWith({
       multiStepRunUsage: { runCount: 3, uncachedTokens, cacheReadTokens, cacheWriteTokens },
       cacheUsageByHost: [
-        { hostName: "ai-sdk", uncachedTokens: 1000, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        {
+          hostName: "ai-sdk",
+          uncachedTokens: 1000,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          ...noMultiStepUsage,
+        },
         {
           hostName: "claude-agent-sdk",
           uncachedTokens: 0,
           cacheReadTokens: 1000,
           cacheWriteTokens: 0,
+          ...noMultiStepUsage,
         },
       ],
     });

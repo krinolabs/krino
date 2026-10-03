@@ -96,10 +96,12 @@ export function chooseNextStep(report: Omit<KrinoReport, "nextStep">): string {
   if (toolSelectionAdvice !== null) {
     return toolSelectionAdvice;
   }
-  const { cacheReadShare } = report.cacheHealth.overall;
+  // Multi-step runs only: a one-step run cannot read from the cache, so counting it would warn
+  // about healthy caching.
+  const { cacheReadShare } = report.cacheHealth.multiStepRuns.overall;
   if (cacheReadShare !== null && cacheReadShare < CACHE_READ_SHARE_WARNING) {
     return (
-      `Only ${percent(cacheReadShare)} of input tokens were read from cache: ` +
+      `Only ${percent(cacheReadShare)} of input tokens in multi-step runs were read from cache: ` +
       "check that prompt caching is on."
     );
   }

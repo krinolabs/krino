@@ -1,5 +1,6 @@
 import { DEFAULT_MODEL_PRICES } from "@krinolabs/krino";
 import { describe, expect, it } from "vitest";
+import { PLAIN_STYLE } from "../terminal/text-style.js";
 import {
   EMPTY_TRACE_AGGREGATES,
   type TraceAggregates,
@@ -12,7 +13,7 @@ import {
   riskGateSuggestions,
 } from "./build-report.js";
 import { chooseNextStep } from "./next-step.js";
-import { formatUsd } from "./render-report-text.js";
+import { formatUsd, renderReportText } from "./render-report-text.js";
 import type { DecisionReport, KrinoReport } from "./report-types.js";
 
 const reportContext = {
@@ -268,6 +269,82 @@ describe("cacheShares", () => {
   });
 });
 
+describe("cache health", () => {
+  it("reports all runs and multi-step runs only, overall and per host", () => {
+    const report = buildReport(
+      aggregates({
+        cacheUsage: [
+          {
+            hostName: "claude-agent-sdk",
+            uncachedTokens: 10,
+            cacheReadTokens: 90,
+            cacheWriteTokens: 0,
+            multiStepRunCount: 2,
+            multiStepUncachedTokens: 5,
+            multiStepCacheReadTokens: 45,
+            multiStepCacheWriteTokens: 0,
+          },
+          {
+            hostName: "ai-sdk",
+            uncachedTokens: 60,
+            cacheReadTokens: 40,
+            cacheWriteTokens: 0,
+            multiStepRunCount: 1,
+            multiStepUncachedTokens: 10,
+            multiStepCacheReadTokens: 40,
+            multiStepCacheWriteTokens: 0,
+          },
+        ],
+      }),
+      reportContext,
+    );
+
+    expect(report.cacheHealth.overall.cacheReadShare).toBe(0.65);
+    expect(report.cacheHealth.multiStepRuns.runCount).toBe(3);
+    expect(report.cacheHealth.multiStepRuns.overall).toEqual(
+      cacheShares([{ uncachedTokens: 15, cacheReadTokens: 85, cacheWriteTokens: 0 }]),
+    );
+    expect(report.cacheHealth.multiStepRuns.byHost).toEqual([
+      {
+        hostName: "ai-sdk",
+        runCount: 1,
+        ...cacheShares([{ uncachedTokens: 10, cacheReadTokens: 40, cacheWriteTokens: 0 }]),
+      },
+      {
+        hostName: "claude-agent-sdk",
+        runCount: 2,
+        ...cacheShares([{ uncachedTokens: 5, cacheReadTokens: 45, cacheWriteTokens: 0 }]),
+      },
+    ]);
+  });
+
+  it("shows both shares in the text report", () => {
+    const report = buildReport(
+      aggregates({
+        cacheUsage: [
+          {
+            hostName: "ai-sdk",
+            uncachedTokens: 60,
+            cacheReadTokens: 40,
+            cacheWriteTokens: 0,
+            multiStepRunCount: 1,
+            multiStepUncachedTokens: 10,
+            multiStepCacheReadTokens: 40,
+            multiStepCacheWriteTokens: 0,
+          },
+        ],
+      }),
+      reportContext,
+    );
+    const reportText = renderReportText(report, PLAIN_STYLE);
+
+    expect(reportText).toContain("All runs");
+    expect(reportText).toContain("Multi-step runs only (1 run)");
+    expect(reportText).toContain("read 40.0%");
+    expect(reportText).toContain("read 80.0%");
+  });
+});
+
 function toolSelectionShadow(overrides: Partial<DecisionReport>): DecisionReport {
   return {
     decisionKind: "toolSelection",
@@ -402,17 +479,34 @@ describe("chooseNextStep", () => {
     expect(chooseNextStep(report)).toContain("keep explorationRate above 0");
   });
 
-  it("flags a low cache read share when tool selection has nothing to say", () => {
-    const report = baseReport({
-      cacheHealth: {
-        overall: cacheShares([{ uncachedTokens: 80, cacheReadTokens: 10, cacheWriteTokens: 10 }]),
+  function cacheHealthWith(allRunsReadShare: number, multiStepReadShare: number) {
+    const readTokens = (share: number) => ({
+      uncachedTokens: 100 - share * 100,
+      cacheReadTokens: share * 100,
+      cacheWriteTokens: 0,
+    });
+    return {
+      overall: cacheShares([readTokens(allRunsReadShare)]),
+      byHost: [],
+      multiStepRuns: {
+        runCount: 3,
+        overall: cacheShares([readTokens(multiStepReadShare)]),
         byHost: [],
       },
-    });
+    };
+  }
+
+  it("flags a low multi-step cache read share when tool selection has nothing to say", () => {
+    const report = baseReport({ cacheHealth: cacheHealthWith(0.9, 0.1) });
     expect(chooseNextStep(report)).toBe(
-      "Only 10% of input tokens were read from cache: check that prompt caching is on.",
+      "Only 10% of input tokens in multi-step runs were read from cache: check that prompt caching is on.",
     );
     expect(chooseNextStep(baseReport({}))).toBe("Nothing to change: keep collecting traces.");
+  });
+
+  it("ignores a low all-runs share: one-step runs cannot read from the cache", () => {
+    const report = baseReport({ cacheHealth: cacheHealthWith(0.1, 0.8) });
+    expect(chooseNextStep(report)).toBe("Nothing to change: keep collecting traces.");
   });
 });
 

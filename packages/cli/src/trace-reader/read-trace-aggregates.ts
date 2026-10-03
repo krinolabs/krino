@@ -98,6 +98,11 @@ export type CacheUsageRow = {
   uncachedTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
+  /** Runs with more than one step that used this host. One-step runs cannot read from cache. */
+  multiStepRunCount: number;
+  multiStepUncachedTokens: number;
+  multiStepCacheReadTokens: number;
+  multiStepCacheWriteTokens: number;
 };
 
 /** Everything the report needs from the trace files, already aggregated. */
@@ -317,6 +322,10 @@ async function aggregateWithConnection(
     uncachedTokens: numberColumn(resultRow, "uncached_tokens"),
     cacheReadTokens: numberColumn(resultRow, "cache_read_tokens"),
     cacheWriteTokens: numberColumn(resultRow, "cache_write_tokens"),
+    multiStepRunCount: numberColumn(resultRow, "multi_step_run_count"),
+    multiStepUncachedTokens: numberColumn(resultRow, "multi_step_uncached_tokens"),
+    multiStepCacheReadTokens: numberColumn(resultRow, "multi_step_cache_read_tokens"),
+    multiStepCacheWriteTokens: numberColumn(resultRow, "multi_step_cache_write_tokens"),
   }));
 
   return {

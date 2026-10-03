@@ -1,9 +1,9 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import nodePath from "node:path";
-import { FAKE_DECISION_MODEL_VERSION } from "@krinolabs/krino";
+import { DEFAULT_MODEL_PRICES, FAKE_DECISION_MODEL_VERSION } from "@krinolabs/krino";
 import { describe, expect, it } from "vitest";
-import { cacheShares } from "../report/build-report.js";
+import { buildReport, cacheShares } from "../report/build-report.js";
 import { listTraceFiles } from "../trace-reader/list-trace-files.js";
 import { nonBlankLines, readTraceAggregates } from "../trace-reader/read-trace-aggregates.js";
 import type { TraceLocation } from "../trace-reader/trace-directory.js";
@@ -221,7 +221,16 @@ describe("summarizeTraceLines", () => {
       everything,
     );
     expect(traceSummary.cacheUsageByHost).toEqual([
-      { hostName: "ai-sdk", uncachedTokens: 100, cacheReadTokens: 300, cacheWriteTokens: 50 },
+      {
+        hostName: "ai-sdk",
+        uncachedTokens: 100,
+        cacheReadTokens: 300,
+        cacheWriteTokens: 50,
+        multiStepRunCount: 1,
+        multiStepUncachedTokens: 100,
+        multiStepCacheReadTokens: 300,
+        multiStepCacheWriteTokens: 50,
+      },
     ]);
   });
 
@@ -235,7 +244,16 @@ describe("summarizeTraceLines", () => {
       everything,
     );
     expect(traceSummary.cacheUsageByHost).toEqual([
-      { hostName: "ai-sdk", uncachedTokens: 200, cacheReadTokens: 600, cacheWriteTokens: 100 },
+      {
+        hostName: "ai-sdk",
+        uncachedTokens: 200,
+        cacheReadTokens: 600,
+        cacheWriteTokens: 100,
+        multiStepRunCount: 1,
+        multiStepUncachedTokens: 200,
+        multiStepCacheReadTokens: 600,
+        multiStepCacheWriteTokens: 100,
+      },
     ]);
     expect(traceSummary.multiStepRunUsage.runCount).toBe(1);
   });
@@ -277,7 +295,16 @@ describe("summarizeTraceLines", () => {
       cacheWriteTokens: 50,
     });
     expect(traceSummary.cacheUsageByHost).toEqual([
-      { hostName: "ai-sdk", uncachedTokens: 300, cacheReadTokens: 1599, cacheWriteTokens: 150 },
+      {
+        hostName: "ai-sdk",
+        uncachedTokens: 300,
+        cacheReadTokens: 1599,
+        cacheWriteTokens: 150,
+        multiStepRunCount: 1,
+        multiStepUncachedTokens: 100,
+        multiStepCacheReadTokens: 300,
+        multiStepCacheWriteTokens: 50,
+      },
     ]);
   });
 });
@@ -312,6 +339,37 @@ async function compareReaders(traceLocation: TraceLocation): Promise<void> {
     expect(cacheShares(doctorRow === undefined ? [] : [doctorRow]).cacheReadShare).toBe(
       cacheShares([reportRow]).cacheReadShare,
     );
+  }
+
+  // Multi-step runs only: doctor's warning share equals the report's, overall and per host.
+  const reportCacheHealth = buildReport(traceAggregates, {
+    projectName: null,
+    since: new Date(0),
+    generatedAt: new Date(0),
+    traceDirectory: "/traces",
+    tokensPerToolDefinition: 175,
+    modelPrices: DEFAULT_MODEL_PRICES,
+  }).cacheHealth.multiStepRuns;
+  expect(reportCacheHealth.runCount).toBeGreaterThan(0);
+  expect(cacheShares([traceSummary.multiStepRunUsage]).cacheReadShare).toBe(
+    reportCacheHealth.overall.cacheReadShare,
+  );
+  expect(traceSummary.multiStepRunUsage.runCount).toBe(reportCacheHealth.runCount);
+  expect(reportCacheHealth.byHost.length).toBeGreaterThan(0);
+  for (const reportHost of reportCacheHealth.byHost) {
+    const doctorRow = traceSummary.cacheUsageByHost.find(
+      (usageRow) => usageRow.hostName === reportHost.hostName,
+    );
+    expect(doctorRow?.multiStepRunCount).toBe(reportHost.runCount);
+    expect(
+      cacheShares([
+        {
+          uncachedTokens: doctorRow?.multiStepUncachedTokens ?? 0,
+          cacheReadTokens: doctorRow?.multiStepCacheReadTokens ?? 0,
+          cacheWriteTokens: doctorRow?.multiStepCacheWriteTokens ?? 0,
+        },
+      ]).cacheReadShare,
+    ).toBe(reportHost.cacheReadShare);
   }
 }
 

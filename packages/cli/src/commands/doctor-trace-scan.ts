@@ -267,6 +267,7 @@ function sumCacheUsage(
     if (isMultiStep) {
       multiStepRunUsage.runCount += 1;
     }
+    const multiStepHosts = new Set<CacheUsageRow>();
     for (const usageSource of usageSources) {
       let hostUsage = usageByHost.get(usageSource.hostName);
       if (hostUsage === undefined) {
@@ -275,13 +276,25 @@ function sumCacheUsage(
           uncachedTokens: 0,
           cacheReadTokens: 0,
           cacheWriteTokens: 0,
+          multiStepRunCount: 0,
+          multiStepUncachedTokens: 0,
+          multiStepCacheReadTokens: 0,
+          multiStepCacheWriteTokens: 0,
         };
         usageByHost.set(usageSource.hostName, hostUsage);
       }
       addUsage(hostUsage, usageSource.tokenUsage);
       if (isMultiStep) {
         addUsage(multiStepRunUsage, usageSource.tokenUsage);
+        hostUsage.multiStepUncachedTokens += usageSource.tokenUsage.inputTokens;
+        hostUsage.multiStepCacheReadTokens += usageSource.tokenUsage.cacheReadTokens;
+        hostUsage.multiStepCacheWriteTokens += usageSource.tokenUsage.cacheWriteTokens;
+        multiStepHosts.add(hostUsage);
       }
+    }
+    // Like the report: a multi-step run counts once per host it used.
+    for (const hostUsage of multiStepHosts) {
+      hostUsage.multiStepRunCount += 1;
     }
   }
   // Code-unit order, like the report's `ORDER BY ALL`.

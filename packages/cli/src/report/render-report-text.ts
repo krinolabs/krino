@@ -187,9 +187,17 @@ export function renderReportText(report: KrinoReport, textStyle: TextStyle): str
     lines.push("", ...decisionLines(textStyle, decisionReport));
   }
 
+  const { multiStepRuns } = report.cacheHealth;
+  const runWord = multiStepRuns.runCount === 1 ? "run" : "runs";
   lines.push("", textStyle.bold("Cache health (input tokens)"));
+  lines.push("All runs");
   lines.push(labeled(textStyle, "all hosts", cacheText(report.cacheHealth.overall)));
   for (const hostShares of report.cacheHealth.byHost) {
+    lines.push(labeled(textStyle, hostShares.hostName, cacheText(hostShares)));
+  }
+  lines.push(`Multi-step runs only (${formatCount(multiStepRuns.runCount)} ${runWord})`);
+  lines.push(labeled(textStyle, "all hosts", cacheText(multiStepRuns.overall)));
+  for (const hostShares of multiStepRuns.byHost) {
     lines.push(labeled(textStyle, hostShares.hostName, cacheText(hostShares)));
   }
 
