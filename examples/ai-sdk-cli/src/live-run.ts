@@ -1,6 +1,7 @@
 import { createJevAiGatewayProvider } from "@krinolabs/krino/providers/jev";
 import { gateway } from "ai";
 import { LIVE_MODEL_IDENTIFIER, type ToolCount } from "./log-triage.js";
+import type { ResolvedExampleTask } from "./log-triage-tasks.js";
 import { type LogTriageResult, runLogTriage } from "./run-log-triage.js";
 
 // Live: the agent model and the Jev decision provider both go through Vercel AI Gateway.
@@ -17,7 +18,11 @@ export function findMissingKeyVariables(
   );
 }
 
-export type LiveRunOptions = { traceDirectory: string; toolCount: ToolCount };
+export type LiveRunOptions = {
+  traceDirectory: string;
+  toolCount: ToolCount;
+  task: ResolvedExampleTask;
+};
 
 export function runLiveLogTriage(liveRunOptions: LiveRunOptions): Promise<LogTriageResult> {
   return runLogTriage({
@@ -25,5 +30,6 @@ export function runLiveLogTriage(liveRunOptions: LiveRunOptions): Promise<LogTri
     decisionProvider: createJevAiGatewayProvider(),
     traceDirectory: liveRunOptions.traceDirectory,
     toolCount: liveRunOptions.toolCount,
+    task: liveRunOptions.task,
   });
 }

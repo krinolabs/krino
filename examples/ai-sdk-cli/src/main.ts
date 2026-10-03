@@ -3,11 +3,18 @@ import { resolveTraceDirectory } from "@krinolabs/krino";
 import { type CliOptions, CliUsageError, parseCliOptions } from "./cli-options.js";
 import { runFakeLogTriage } from "./fake-run.js";
 import { findMissingKeyVariables, runLiveLogTriage } from "./live-run.js";
-import { LIVE_MODEL_IDENTIFIER, LOG_TRIAGE_TASK_TEXT, PROJECT_NAME } from "./log-triage.js";
+import { LIVE_MODEL_IDENTIFIER, PROJECT_NAME } from "./log-triage.js";
+import { DEFAULT_TASK_IDENTIFIER, EXAMPLE_TASKS, resolveExampleTask } from "./log-triage-tasks.js";
 
-const USAGE = `Usage: pnpm start [--fake] [--tools 10|25|50|100] [--trace-dir <folder>]
+const TASK_LINES = EXAMPLE_TASKS.map(
+  (exampleTask) => `                  ${exampleTask.taskIdentifier}: ${exampleTask.summary}`,
+).join("\n");
+
+const USAGE = `Usage: pnpm start [--fake] [--task <id>] [--tools 10|25|50|100] [--trace-dir <folder>]
 
   --fake        No API keys, no network: the AI SDK mock model and krino's fake decision provider.
+  --task        Which bench task to run (default ${DEFAULT_TASK_IDENTIFIER}):
+${TASK_LINES}
   --tools       How many bench catalog tools the agent gets (default 100).
   --trace-dir   Where krino writes traces (default: $KRINO_TRACE_DIRECTORY, then ~/.krino).
 
@@ -44,11 +51,12 @@ async function runCli(cliOptions: CliOptions): Promise<number> {
       ? "Mode: fake (AI SDK mock language model + krino fake decision provider; no API calls)"
       : `Mode: live (${LIVE_MODEL_IDENTIFIER} via Vercel AI Gateway; Jev decisions)`,
   );
-  writeLine(`Task: ${LOG_TRIAGE_TASK_TEXT}`);
+  const task = resolveExampleTask(cliOptions.taskIdentifier);
+  writeLine(`Task ${task.taskIdentifier}: ${task.taskText}`);
   writeLine(`Tools offered: ${cliOptions.toolCount}`);
   writeLine();
 
-  const runOptions = { traceDirectory, toolCount: cliOptions.toolCount };
+  const runOptions = { traceDirectory, toolCount: cliOptions.toolCount, task };
   const triageResult = cliOptions.isFake
     ? await runFakeLogTriage(runOptions)
     : await runLiveLogTriage(runOptions);

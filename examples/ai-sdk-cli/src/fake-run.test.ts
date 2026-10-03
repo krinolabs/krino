@@ -3,7 +3,10 @@ import nodePath from "node:path";
 import type { AgentStepTrace, RunSummaryTrace } from "@krinolabs/krino";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runFakeLogTriage } from "./fake-run.js";
-import { LOG_TRIAGE_TOOL_NAMES } from "./log-triage.js";
+import { DEFAULT_TASK_IDENTIFIER, resolveExampleTask } from "./log-triage-tasks.js";
+
+const defaultTask = resolveExampleTask(DEFAULT_TASK_IDENTIFIER);
+const writeTask = resolveExampleTask("task-052");
 
 type TraceRecord = AgentStepTrace | RunSummaryTrace;
 
@@ -37,7 +40,11 @@ describe("runFakeLogTriage", () => {
     });
     vi.stubGlobal("fetch", fetchSpy);
 
-    await runFakeLogTriage({ traceDirectory: freshTraceDirectory(), toolCount: 100 });
+    await runFakeLogTriage({
+      traceDirectory: freshTraceDirectory(),
+      toolCount: 100,
+      task: defaultTask,
+    });
 
     expect(fetchSpy).not.toHaveBeenCalled();
   });
@@ -46,9 +53,10 @@ describe("runFakeLogTriage", () => {
     const triageResult = await runFakeLogTriage({
       traceDirectory: freshTraceDirectory(),
       toolCount: 100,
+      task: defaultTask,
     });
 
-    expect(triageResult.usedToolNames).toEqual(LOG_TRIAGE_TOOL_NAMES);
+    expect(triageResult.usedToolNames).toEqual(defaultTask.expectedToolNames);
     expect(triageResult.stepCount).toBe(3);
     expect(triageResult.answerText).toContain("REQ-7f3a");
   });
@@ -56,7 +64,7 @@ describe("runFakeLogTriage", () => {
   it("writes every step and the run summary before it returns", async () => {
     const traceDirectory = freshTraceDirectory();
 
-    await runFakeLogTriage({ traceDirectory, toolCount: 100 });
+    await runFakeLogTriage({ traceDirectory, toolCount: 100, task: defaultTask });
 
     const traceRecords = readTraceRecords(traceDirectory);
     const stepRecords = traceRecords.filter((record) => record.recordType === "agentStep");
@@ -69,7 +77,7 @@ describe("runFakeLogTriage", () => {
   it.each([10, 25, 50, 100] as const)("offers %i tools with --tools", async (toolCount) => {
     const traceDirectory = freshTraceDirectory();
 
-    await runFakeLogTriage({ traceDirectory, toolCount });
+    await runFakeLogTriage({ traceDirectory, toolCount, task: defaultTask });
 
     const stepRecords = readTraceRecords(traceDirectory).filter(
       (record): record is AgentStepTrace => record.recordType === "agentStep",
@@ -78,8 +86,31 @@ describe("runFakeLogTriage", () => {
     for (const stepRecord of stepRecords) {
       expect(stepRecord.availableToolNames).toHaveLength(toolCount);
       expect(stepRecord.availableToolNames).toEqual(
-        expect.arrayContaining([...LOG_TRIAGE_TOOL_NAMES]),
+        expect.arrayContaining([...defaultTask.expectedToolNames]),
       );
     }
+  });
+
+  it("runs the write task: the read-only call is allowed, the ticket goes to askHuman", async () => {
+    const traceDirectory = freshTraceDirectory();
+
+    const triageResult = await runFakeLogTriage({
+      traceDirectory,
+      toolCount: 100,
+      task: writeTask,
+    });
+
+    expect(triageResult.usedToolNames).toEqual([
+      "get_webhook_delivery_log",
+      "create_support_ticket",
+    ]);
+    expect(triageResult.answerText).toContain("WH-EP-3");
+    const riskGateDecisions = readTraceRecords(traceDirectory)
+      .filter((record): record is AgentStepTrace => record.recordType === "agentStep")
+      .flatMap((stepRecord) => stepRecord.decisions)
+      .filter((decisionRecord) => decisionRecord.decisionKind === "riskGate");
+    expect(
+      riskGateDecisions.map((decisionRecord) => decisionRecord.suggestedChoice).sort(),
+    ).toEqual(["allow", "askHuman"]);
   });
 });

@@ -5,19 +5,20 @@ import { generateText, type LanguageModel, stepCountIs } from "ai";
 import {
   createLogTriageKrinoConfig,
   FLUSH_TIMEOUT_IN_MILLISECONDS,
-  LOG_TRIAGE_TASK_TEXT,
   MAX_STEP_COUNT,
   PROJECT_NAME,
   SYSTEM_PROMPT,
   selectLogTriageTools,
   type ToolCount,
 } from "./log-triage.js";
+import type { ResolvedExampleTask } from "./log-triage-tasks.js";
 
 export type LogTriageRunOptions = {
   model: LanguageModel;
   decisionProvider: DecisionProvider;
   traceDirectory: string;
   toolCount: ToolCount;
+  task: ResolvedExampleTask;
 };
 
 export type LogTriageResult = {
@@ -29,7 +30,10 @@ export type LogTriageResult = {
 
 /** Runs the agent once with krino in shadow mode, then waits until the traces are written. */
 export async function runLogTriage(runOptions: LogTriageRunOptions): Promise<LogTriageResult> {
-  const toolDefinitions = selectLogTriageTools(runOptions.toolCount);
+  const toolDefinitions = selectLogTriageTools(
+    runOptions.toolCount,
+    runOptions.task.expectedToolNames,
+  );
   const krino = createKrino(
     createLogTriageKrinoConfig({
       toolNames: toolDefinitions.map((toolDefinition) => toolDefinition.toolName),
@@ -46,7 +50,7 @@ export async function runLogTriage(runOptions: LogTriageRunOptions): Promise<Log
       {
         model: runOptions.model,
         system: SYSTEM_PROMPT,
-        prompt: LOG_TRIAGE_TASK_TEXT,
+        prompt: runOptions.task.taskText,
         tools: createAiSdkToolSet(toolDefinitions),
         stopWhen: stepCountIs(MAX_STEP_COUNT),
       },
