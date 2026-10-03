@@ -210,6 +210,24 @@ importers:
         specifier: 1.31.0
         version: 1.31.0(zod@4.6.5)
 
+  bench-runner:
+    dependencies:
+      '@krinolabs/bench':
+        specifier: workspace:*
+        version: link:../bench
+      '@krinolabs/cli':
+        specifier: workspace:*
+        version: link:../packages/cli
+      '@krinolabs/example-ai-sdk-cli':
+        specifier: workspace:*
+        version: link:../examples/ai-sdk-cli
+      '@krinolabs/krino':
+        specifier: workspace:*
+        version: link:../packages/krino
+      ai:
+        specifier: 7.0.126
+        version: 7.0.126(zod@4.6.5)
+
   e2e: {}
 
   examples/ai-sdk-cli:

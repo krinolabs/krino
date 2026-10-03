@@ -9,3 +9,4 @@ coverage/
 !.env.example
 .DS_Store
 docs/plan/pr-bodies/
+bench-traces/

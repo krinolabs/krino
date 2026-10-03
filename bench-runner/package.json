@@ -1,22 +1,17 @@
 {
-  "name": "@krinolabs/example-ai-sdk-cli",
+  "name": "@krinolabs/bench-runner",
   "version": "0.0.0",
-  "description": "Log-triage CLI agent on the Vercel AI SDK, with krino in shadow mode.",
+  "description": "krino-bench: runs the three-setup tool-selection benchmark on the bench catalog. Not published.",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=22"
   },
-  "exports": {
-    "./agent": {
-      "types": "./dist/agent.d.ts",
-      "import": "./dist/agent.js"
-    },
-    "./package.json": "./package.json"
+  "bin": {
+    "krino-bench": "./dist/main.js"
   },
   "scripts": {
     "build": "tsup",
-    "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "biome check .",
@@ -24,10 +19,9 @@
   },
   "dependencies": {
     "@krinolabs/bench": "workspace:*",
+    "@krinolabs/cli": "workspace:*",
+    "@krinolabs/example-ai-sdk-cli": "workspace:*",
     "@krinolabs/krino": "workspace:*",
     "ai": "7.0.126"
-  },
-  "devDependencies": {
-    "@krinolabs/cli": "workspace:*"
   }
 }

@@ -18,5 +18,19 @@ Run in this order. Each item must pass before release.
 - [ ] Agent SDK: confirm PreToolUse fires after the assistant tool_use message, as the simulated
       stream assumes.
 - [ ] First hand-made trace (M3): 10 runs + `krino report` screenshot.
-- [ ] WP-10: `krino bench --pilot`, then the full bench twice (stable results).
-- [ ] WP-10: scaling check (10 / 25 / 50 / 100 tools).
+- [ ] WP-10: build once: `pnpm turbo run build --filter=@krinolabs/bench-runner...`. Every bench
+      command needs AI_GATEWAY_API_KEY, prints its spend estimate, and refuses to start (exit 4)
+      when the estimate is over `--max-spend-usd` (default $20). Check that the output has no
+      `SIMULATED` line and `"mode": "live"`. Exit codes: `bench-runner/README.md`.
+      The main runs keep krino's 800 ms decision timeout. Check the "timed out" column
+      (`toolSelectionTimeoutShare`): if it is high, step-zero failed open and its numbers show
+      the timeout, not pruning. Diagnose with an extra run that adds `--decision-timeout-ms 3000`;
+      never publish that run as a main result.
+- [ ] WP-10 pilot (≈ $1.26 estimated):
+      `pnpm --filter @krinolabs/bench-runner exec krino-bench --pilot --trace-dir ./bench-traces/pilot`
+- [ ] WP-10 full bench, run 1 (≈ $15 estimated):
+      `pnpm --filter @krinolabs/bench-runner exec krino-bench --trace-dir ./bench-traces/full-1`
+- [ ] WP-10 full bench, run 2 (stable results: compare the two `chartRows`):
+      `pnpm --filter @krinolabs/bench-runner exec krino-bench --trace-dir ./bench-traces/full-2`
+- [ ] WP-10 scaling check, 10 / 25 / 50 / 100 tools (≈ $4.92 estimated):
+      `pnpm --filter @krinolabs/bench-runner exec krino-bench --setups step-zero --tool-counts 10,25,50,100 --repeats 1 --trace-dir ./bench-traces/scaling`

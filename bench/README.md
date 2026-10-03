@@ -111,19 +111,42 @@ descriptions with tool-specific detail; do not add shared text.
 
 ## Scoring
 
-`krino bench` (WP-10) scores each run with these three metrics. Report each one overall and per
-difficulty (`easy`, `lookAlike`, `multiStep`).
+`krino-bench` (WP-10, `bench-runner/`) scores each run with these metrics, for every setup
+(`baseline`, `per-step`, `step-zero`). Report each one overall, per difficulty (`easy`,
+`lookAlike`, `multiStep`), and per stable task identifier (never by position).
 
-### Selection recall (primary)
+### Selection recall (primary): recall at the step the tool was needed
 
-The share of tasks where **every** expected tool is in the suggested set.
+The share of runs where **every** expected tool was offered on the step where the agent called it,
+or would have called it.
 
 ```
-selectionRecall = count(tasks where expectedToolNames ⊆ suggestedToolNames) / count(tasks)
+selectionRecall = count(runs where every expected tool was offered on its needed step) / count(runs)
 ```
 
-`suggestedToolNames` is the set krino keeps at step 0 (AI SDK) or at run start (Claude Agent SDK).
-Missing even one expected tool fails the task: the agent cannot call a tool it was not given.
+Walk `expectedToolNames` in order:
+
+- an expected tool the agent called (its first call after the previous expected tool's match) is
+  needed on the step of that call;
+- an expected tool it never called is needed on the step after the previous expected tool's step
+  (step 0 for the first one).
+
+The tool must be in the list sent on that step. A run that ends before that step misses the tool.
+Missing even one expected tool fails the run: the agent cannot call a tool it was not given. This
+works for every setup, including `per-step`, whose list changes from step to step. For
+`step-zero` the list never changes, so it equals step-0 recall whenever the run reaches each needed
+step; it can only be lower when the agent itself stops early.
+
+### Step-0 recall (secondary)
+
+The share of runs where every expected tool is in the set sent on step 0:
+
+```
+stepZeroSelectionRecall = count(runs where expectedToolNames ⊆ stepZeroToolNames) / count(runs)
+```
+
+`stepZeroToolNames` is the set krino keeps at step 0 (AI SDK) or at run start (Claude Agent SDK).
+
 Comparisons use exact tool names; a name that is not in the catalog never matches.
 
 ### Set size
@@ -131,11 +154,11 @@ Comparisons use exact tool names; a name that is not in the catalog never matche
 The number of tools kept versus the number available.
 
 ```
-keptShare = count(suggestedToolNames) / count(availableToolNames)
+keptShare = count(stepZeroToolNames) / count(availableToolNames)
 ```
 
-Report the mean and the median of `keptShare` over tasks, and the mean kept count. `available` is
-100 for the full catalog. A smaller set is only better at the same selection recall, so always
+Report the mean and the median of `keptShare` over runs, and the mean kept count. `available` is
+the run's tool count (`--tool-counts`; 100 for the full catalog). A smaller set is only better at the same selection recall, so always
 read set size next to selection recall.
 
 ### Sequence match (multiStep only)
