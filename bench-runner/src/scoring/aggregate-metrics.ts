@@ -1,6 +1,6 @@
 import type { BenchTaskDifficulty } from "@krinolabs/bench";
 import { type DecisionRecord, KRINO_CONFIG_DEFAULTS } from "@krinolabs/krino";
-import { BENCH_SETUP_NAMES, type BenchSetupName, DIFFICULTY_ORDER } from "../plan/run-plan.js";
+import { BENCH_SETUP_NAMES, type BenchSetupName } from "../plan/run-plan.js";
 import type { RunObservation } from "../setups/run-bench-task.js";
 import {
   matchExpectedSequence,
@@ -267,12 +267,13 @@ export function groupObservations(
       groupObservationList,
       (observation) => observation.difficulty,
     );
-    const byDifficulty = Object.fromEntries(
-      DIFFICULTY_ORDER.map((difficulty) => [
-        difficulty,
-        aggregateMetrics(byDifficultyGroups.get(difficulty) ?? []),
-      ]),
-    ) as Record<BenchTaskDifficulty, BenchMetrics>;
+    const metricsFor = (difficulty: BenchTaskDifficulty): BenchMetrics =>
+      aggregateMetrics(byDifficultyGroups.get(difficulty) ?? []);
+    const byDifficulty: Record<BenchTaskDifficulty, BenchMetrics> = {
+      easy: metricsFor("easy"),
+      lookAlike: metricsFor("lookAlike"),
+      multiStep: metricsFor("multiStep"),
+    };
     const byTaskGroups = groupBy(groupObservationList, (observation) => observation.taskIdentifier);
     const byTask = [...byTaskGroups.keys()]
       .sort(compareText)
