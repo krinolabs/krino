@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import nodePath from "node:path";
 import { FAKE_DECISION_MODEL_VERSION } from "@krinolabs/krino";
 import { describe, expect, it } from "vitest";
+import { cacheShares } from "../report/build-report.js";
 import { listTraceFiles } from "../trace-reader/list-trace-files.js";
 import { nonBlankLines, readTraceAggregates } from "../trace-reader/read-trace-aggregates.js";
 import type { TraceLocation } from "../trace-reader/trace-directory.js";
@@ -210,7 +211,50 @@ describe("summarizeTraceLines", () => {
     expect(traceSummary.fakeProviderDecisionCount).toBe(1);
   });
 
-  it("sums cache usage over multi-step run summaries only", () => {
+  it("takes a run's usage from its summary, and ignores that run's steps (as krino report does)", () => {
+    const traceSummary = summarizeTraceLines(
+      [
+        JSON.stringify(agentStep({ stepNumber: 0 })),
+        JSON.stringify(agentStep({ stepNumber: 1 })),
+        JSON.stringify(runSummary({ stepCount: 2 })),
+      ],
+      everything,
+    );
+    expect(traceSummary.cacheUsageByHost).toEqual([
+      { hostName: "ai-sdk", uncachedTokens: 100, cacheReadTokens: 300, cacheWriteTokens: 50 },
+    ]);
+  });
+
+  it("takes usage from the steps of a run without a summary, skipping steps with no usage", () => {
+    const traceSummary = summarizeTraceLines(
+      [
+        JSON.stringify(agentStep({ runIdentifier: "cut", stepNumber: 0 })),
+        JSON.stringify(agentStep({ runIdentifier: "cut", stepNumber: 1 })),
+        JSON.stringify(agentStep({ runIdentifier: "cut", stepNumber: 2, tokenUsage: null })),
+      ],
+      everything,
+    );
+    expect(traceSummary.cacheUsageByHost).toEqual([
+      { hostName: "ai-sdk", uncachedTokens: 200, cacheReadTokens: 600, cacheWriteTokens: 100 },
+    ]);
+    expect(traceSummary.multiStepRunUsage.runCount).toBe(1);
+  });
+
+  it("groups usage per host, sorted by host name", () => {
+    const traceSummary = summarizeTraceLines(
+      [
+        JSON.stringify(runSummary({ hostName: "claude-agent-sdk", runIdentifier: "c-1" })),
+        JSON.stringify(runSummary({ runIdentifier: "a-1" })),
+      ],
+      everything,
+    );
+    expect(traceSummary.cacheUsageByHost.map((usageRow) => usageRow.hostName)).toEqual([
+      "ai-sdk",
+      "claude-agent-sdk",
+    ]);
+  });
+
+  it("sums multi-step usage over runs with more than one step only", () => {
     const traceSummary = summarizeTraceLines(
       [
         JSON.stringify(runSummary({ stepCount: 3 })),
@@ -221,6 +265,8 @@ describe("summarizeTraceLines", () => {
             totalTokenUsage: { ...tokenUsage, cacheReadTokens: 999 },
           }),
         ),
+        // No summary and one step: single-step.
+        JSON.stringify(agentStep({ runIdentifier: "run-3" })),
       ],
       everything,
     );
@@ -230,6 +276,9 @@ describe("summarizeTraceLines", () => {
       cacheReadTokens: 300,
       cacheWriteTokens: 50,
     });
+    expect(traceSummary.cacheUsageByHost).toEqual([
+      { hostName: "ai-sdk", uncachedTokens: 300, cacheReadTokens: 1599, cacheWriteTokens: 150 },
+    ]);
   });
 });
 
@@ -249,6 +298,21 @@ async function compareReaders(traceLocation: TraceLocation): Promise<void> {
   expect(traceSummary.runCount).toBe(traceAggregates.recordCounts.runCount);
   expect(traceSummary.agentStepCount).toBe(traceAggregates.recordCounts.agentStepCount);
   expect(traceSummary.runSummaryCount).toBe(traceAggregates.recordCounts.runSummaryCount);
+
+  // Cache read share: the same token sources as `krino report`, overall and per host.
+  expect(traceSummary.cacheUsageByHost.length).toBeGreaterThan(0);
+  expect(cacheShares(traceSummary.cacheUsageByHost)).toEqual(
+    cacheShares(traceAggregates.cacheUsage),
+  );
+  expect(traceSummary.cacheUsageByHost).toEqual(traceAggregates.cacheUsage);
+  for (const reportRow of traceAggregates.cacheUsage) {
+    const doctorRow = traceSummary.cacheUsageByHost.find(
+      (usageRow) => usageRow.hostName === reportRow.hostName,
+    );
+    expect(cacheShares(doctorRow === undefined ? [] : [doctorRow]).cacheReadShare).toBe(
+      cacheShares([reportRow]).cacheReadShare,
+    );
+  }
 }
 
 describe("parity with WP-09's trace reader", () => {

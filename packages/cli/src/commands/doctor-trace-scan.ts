@@ -1,11 +1,14 @@
 import { FAKE_DECISION_MODEL_VERSION, TRACE_SCHEMA_VERSION } from "@krinolabs/krino";
-import type { LineCounts } from "../trace-reader/read-trace-aggregates.js";
+import type { CacheUsageRow, LineCounts } from "../trace-reader/read-trace-aggregates.js";
 
 // A small in-process line scanner for `krino doctor`. It applies the same line rules as WP-09's
 // DuckDB reader (`trace-queries.ts`, CLASSIFY_LINES_SQL), so doctor and `krino report` agree on
 // which lines are bad; a parity test runs both on the same folders. Doctor needs fields the
 // report's aggregates leave out (each run's `stepCount`, each decision's model version), and
 // stays usable when DuckDB's native binding cannot load.
+//
+// Cache usage comes from the same sources as the report's CACHE_USAGE_SQL: a run's summaries
+// when it has any, else that run's steps that carry token usage.
 
 export type TraceLineClass = "invalidJson" | "unsupportedSchemaVersion" | "invalidShape";
 
@@ -23,13 +26,17 @@ export type ScannedTraceRecord =
       recordType: "agentStep";
       projectName: string;
       runIdentifier: string;
+      hostName: string;
       recordedAtEpochMilliseconds: number;
+      /** `null` when the host reports usage per run only. */
+      tokenUsage: TokenUsageFields | null;
       decisions: Array<ScannedDecision>;
     }
   | {
       recordType: "runSummary";
       projectName: string;
       runIdentifier: string;
+      hostName: string;
       recordedAtEpochMilliseconds: number;
       stepCount: number;
       totalTokenUsage: TokenUsageFields;
@@ -63,7 +70,12 @@ export type TraceScanSummary = {
   cutOffDecisionCount: number;
   /** Decisions answered by the fake provider (`FAKE_DECISION_MODEL_VERSION`). */
   fakeProviderDecisionCount: number;
-  /** Token usage of run summaries with `stepCount > 1`. */
+  /** Input token usage per host over every run, from the same sources as `krino report`. */
+  cacheUsageByHost: Array<CacheUsageRow>;
+  /**
+   * The same sources, over runs with more than one step: the summary's `stepCount`, or the
+   * number of step records for a run without a summary.
+   */
   multiStepRunUsage: MultiStepRunUsage;
 };
 
@@ -137,6 +149,7 @@ function scanRecord(jsonObject: JsonObject): ScannedTraceRecord | null {
   }
   const projectName = String(field(jsonObject, "projectName"));
   const runIdentifier = String(field(jsonObject, "runIdentifier"));
+  const hostName = String(field(jsonObject, "hostName"));
   const recordedAtEpochMilliseconds = Date.parse(String(field(jsonObject, "recordedAt")));
   if (Number.isNaN(recordedAtEpochMilliseconds)) {
     return null;
@@ -144,15 +157,23 @@ function scanRecord(jsonObject: JsonObject): ScannedTraceRecord | null {
   const recordType = field(jsonObject, "recordType");
   if (recordType === "agentStep") {
     const tokenUsageValue = field(jsonObject, "tokenUsage");
+    const tokenUsage = tokenUsageFrom(tokenUsageValue);
     const decisions = decisionsFrom(field(jsonObject, "decisions"));
     const shapeIsValid =
       isNumber(field(jsonObject, "stepNumber")) &&
       Array.isArray(field(jsonObject, "availableToolNames")) &&
       Array.isArray(field(jsonObject, "chosenToolNames")) &&
-      (tokenUsageValue === null || tokenUsageFrom(tokenUsageValue) !== null) &&
-      decisions !== null;
+      (tokenUsageValue === null || tokenUsage !== null);
     return shapeIsValid && decisions !== null
-      ? { recordType, projectName, runIdentifier, recordedAtEpochMilliseconds, decisions }
+      ? {
+          recordType,
+          projectName,
+          runIdentifier,
+          hostName,
+          recordedAtEpochMilliseconds,
+          tokenUsage,
+          decisions,
+        }
       : null;
   }
   if (recordType === "runSummary") {
@@ -167,6 +188,7 @@ function scanRecord(jsonObject: JsonObject): ScannedTraceRecord | null {
           recordType,
           projectName,
           runIdentifier,
+          hostName,
           recordedAtEpochMilliseconds,
           stepCount,
           totalTokenUsage,
@@ -204,6 +226,71 @@ function countBadLine(lineCounts: LineCounts, lineClass: TraceLineClass): void {
   }
 }
 
+type UsageSource = { hostName: string; tokenUsage: TokenUsageFields };
+
+/** One run's usage sources: its summaries, and those of its steps that carry usage. */
+type RunUsageSources = {
+  summaries: Array<UsageSource & { stepCount: number }>;
+  stepRecordCount: number;
+  steps: Array<UsageSource>;
+};
+
+type UsageTotals = Pick<CacheUsageRow, "uncachedTokens" | "cacheReadTokens" | "cacheWriteTokens">;
+
+function addUsage(usageTotals: UsageTotals, tokenUsage: TokenUsageFields): void {
+  usageTotals.uncachedTokens += tokenUsage.inputTokens;
+  usageTotals.cacheReadTokens += tokenUsage.cacheReadTokens;
+  usageTotals.cacheWriteTokens += tokenUsage.cacheWriteTokens;
+}
+
+/** The report's rule: a run's summaries when it has any, else its steps that carry usage. */
+function sumCacheUsage(
+  runUsageSources: Iterable<RunUsageSources>,
+): Pick<TraceScanSummary, "cacheUsageByHost" | "multiStepRunUsage"> {
+  const usageByHost = new Map<string, CacheUsageRow>();
+  const multiStepRunUsage: MultiStepRunUsage = {
+    runCount: 0,
+    uncachedTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+  };
+  for (const runSources of runUsageSources) {
+    const hasSummary = runSources.summaries.length > 0;
+    const usageSources: Array<UsageSource> = hasSummary ? runSources.summaries : runSources.steps;
+    if (usageSources.length === 0) {
+      continue;
+    }
+    const runStepCount = hasSummary
+      ? Math.max(...runSources.summaries.map((runSummary) => runSummary.stepCount))
+      : runSources.stepRecordCount;
+    const isMultiStep = runStepCount > 1;
+    if (isMultiStep) {
+      multiStepRunUsage.runCount += 1;
+    }
+    for (const usageSource of usageSources) {
+      let hostUsage = usageByHost.get(usageSource.hostName);
+      if (hostUsage === undefined) {
+        hostUsage = {
+          hostName: usageSource.hostName,
+          uncachedTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+        };
+        usageByHost.set(usageSource.hostName, hostUsage);
+      }
+      addUsage(hostUsage, usageSource.tokenUsage);
+      if (isMultiStep) {
+        addUsage(multiStepRunUsage, usageSource.tokenUsage);
+      }
+    }
+  }
+  // Code-unit order, like the report's `ORDER BY ALL`.
+  const cacheUsageByHost = [...usageByHost.values()].sort((left, right) =>
+    left.hostName < right.hostName ? -1 : left.hostName > right.hostName ? 1 : 0,
+  );
+  return { cacheUsageByHost, multiStepRunUsage };
+}
+
 /** Counts and sums doctor needs, over the non-blank lines of the recent trace files. */
 export function summarizeTraceLines(
   lineTexts: Iterable<string>,
@@ -216,7 +303,7 @@ export function summarizeTraceLines(
     unsupportedSchemaVersionLineCount: 0,
     invalidShapeLineCount: 0,
   };
-  const runKeys = new Set<string>();
+  const usageSourcesByRun = new Map<string, RunUsageSources>();
   const traceSummary: TraceScanSummary = {
     lineCounts,
     agentStepCount: 0,
@@ -225,6 +312,7 @@ export function summarizeTraceLines(
     decisionCount: 0,
     cutOffDecisionCount: 0,
     fakeProviderDecisionCount: 0,
+    cacheUsageByHost: [],
     multiStepRunUsage: { runCount: 0, uncachedTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
   };
   for (const lineText of lineTexts) {
@@ -242,9 +330,21 @@ export function summarizeTraceLines(
     ) {
       continue;
     }
-    runKeys.add(JSON.stringify([traceRecord.projectName, traceRecord.runIdentifier]));
+    const runKey = JSON.stringify([traceRecord.projectName, traceRecord.runIdentifier]);
+    let runSources = usageSourcesByRun.get(runKey);
+    if (runSources === undefined) {
+      runSources = { summaries: [], stepRecordCount: 0, steps: [] };
+      usageSourcesByRun.set(runKey, runSources);
+    }
     if (traceRecord.recordType === "agentStep") {
       traceSummary.agentStepCount += 1;
+      runSources.stepRecordCount += 1;
+      if (traceRecord.tokenUsage !== null) {
+        runSources.steps.push({
+          hostName: traceRecord.hostName,
+          tokenUsage: traceRecord.tokenUsage,
+        });
+      }
       for (const scannedDecision of traceRecord.decisions) {
         traceSummary.decisionCount += 1;
         if (scannedDecision.decisionStatus === "cutOff") {
@@ -257,14 +357,12 @@ export function summarizeTraceLines(
       continue;
     }
     traceSummary.runSummaryCount += 1;
-    if (traceRecord.stepCount > 1) {
-      const usage = traceSummary.multiStepRunUsage;
-      usage.runCount += 1;
-      usage.uncachedTokens += traceRecord.totalTokenUsage.inputTokens;
-      usage.cacheReadTokens += traceRecord.totalTokenUsage.cacheReadTokens;
-      usage.cacheWriteTokens += traceRecord.totalTokenUsage.cacheWriteTokens;
-    }
+    runSources.summaries.push({
+      hostName: traceRecord.hostName,
+      stepCount: traceRecord.stepCount,
+      tokenUsage: traceRecord.totalTokenUsage,
+    });
   }
-  traceSummary.runCount = runKeys.size;
-  return traceSummary;
+  traceSummary.runCount = usageSourcesByRun.size;
+  return { ...traceSummary, ...sumCacheUsage(usageSourcesByRun.values()) };
 }

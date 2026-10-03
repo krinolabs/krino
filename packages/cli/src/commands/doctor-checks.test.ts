@@ -12,6 +12,7 @@ import {
   checkGatewayKey,
   checkNodeVersion,
   checkRecentTraces,
+  checkTraceFolderMatch,
   checkTraceFolderWritable,
   probeFileSystemFromDisk,
 } from "./doctor-checks.js";
@@ -111,10 +112,11 @@ describe("checkFakeProvider", () => {
     expect(checkFakeProvider(summaryWith({ decisionCount: 10 })).checkStatus).toBe("pass");
   });
 
-  it("passes with nothing to check", () => {
+  it("skips with nothing to check", () => {
     const providerCheck = checkFakeProvider(emptySummary());
-    expect(providerCheck.checkStatus).toBe("pass");
+    expect(providerCheck.checkStatus).toBe("skip");
     expect(providerCheck.detail).toContain("no recent decisions");
+    expect(providerCheck.fixLine).toBeNull();
   });
 });
 
@@ -232,8 +234,8 @@ describe("checkCutOffRate", () => {
     expect(checkCutOffRate(summaryWith({ decisionCount: 100 })).checkStatus).toBe("pass");
   });
 
-  it("passes with nothing to check", () => {
-    expect(checkCutOffRate(emptySummary()).checkStatus).toBe("pass");
+  it("skips with nothing to check", () => {
+    expect(checkCutOffRate(emptySummary()).checkStatus).toBe("skip");
   });
 });
 
@@ -241,6 +243,15 @@ describe("checkCacheHealth", () => {
   function usage(uncachedTokens: number, cacheReadTokens: number, cacheWriteTokens: number) {
     return summaryWith({
       multiStepRunUsage: { runCount: 3, uncachedTokens, cacheReadTokens, cacheWriteTokens },
+      cacheUsageByHost: [
+        { hostName: "ai-sdk", uncachedTokens: 1000, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        {
+          hostName: "claude-agent-sdk",
+          uncachedTokens: 0,
+          cacheReadTokens: 1000,
+          cacheWriteTokens: 0,
+        },
+      ],
     });
   }
 
@@ -251,15 +262,86 @@ describe("checkCacheHealth", () => {
     expect(cacheCheck.detail).toContain("3 multi-step runs");
   });
 
+  it("also shows the all-runs share, as krino report computes it", () => {
+    expect(checkCacheHealth(usage(400, 500, 100)).detail).toContain(
+      "all runs: 50%, as in krino report",
+    );
+  });
+
   it("passes at 50% and above", () => {
     expect(checkCacheHealth(usage(400, 500, 100)).checkStatus).toBe("pass");
     expect(checkCacheHealth(usage(100, 800, 100)).checkStatus).toBe("pass");
   });
 
-  it("passes with no multi-step runs", () => {
+  it("skips with no multi-step runs", () => {
     const cacheCheck = checkCacheHealth(emptySummary());
-    expect(cacheCheck.checkStatus).toBe("pass");
+    expect(cacheCheck.checkStatus).toBe("skip");
     expect(cacheCheck.detail).toContain("no multi-step runs");
+    expect(cacheCheck.fixLine).toBeNull();
+  });
+});
+
+describe("checkTraceFolderMatch", () => {
+  const sameFolderFix =
+    "Use an absolute path or set KRINO_TRACE_DIRECTORY so the runtime and the CLI use the same folder.";
+
+  it("warns when the config folder and the working folder resolve a relative path differently (Windows)", () => {
+    const matchCheck = checkTraceFolderMatch(
+      {
+        configFolder: "C:\\Projects\\my shop",
+        workingDirectory: "C:\\Projects\\my shop\\src",
+        traceDirectory: "traces",
+      },
+      nodePath.win32,
+    );
+    expect(matchCheck.checkStatus).toBe("warn");
+    expect(matchCheck.detail).toContain("C:\\Projects\\my shop\\traces");
+    expect(matchCheck.detail).toContain("C:\\Projects\\my shop\\src\\traces");
+    expect(matchCheck.fixLine).toBe(sameFolderFix);
+  });
+
+  it("passes when both resolve a relative path to the same folder (Windows)", () => {
+    const matchCheck = checkTraceFolderMatch(
+      {
+        configFolder: "C:\\Projects\\my shop",
+        workingDirectory: "C:\\Projects\\my shop\\",
+        traceDirectory: ".\\traces",
+      },
+      nodePath.win32,
+    );
+    expect(matchCheck.checkStatus).toBe("pass");
+    expect(matchCheck.detail).toContain("C:\\Projects\\my shop\\traces");
+  });
+
+  it("warns and passes the same way on POSIX", () => {
+    expect(
+      checkTraceFolderMatch(
+        { configFolder: "/home/dev/shop", workingDirectory: "/tmp", traceDirectory: "../traces" },
+        nodePath.posix,
+      ).checkStatus,
+    ).toBe("warn");
+    expect(
+      checkTraceFolderMatch(
+        {
+          configFolder: "/home/dev/shop",
+          workingDirectory: "/home/dev/shop",
+          traceDirectory: "traces",
+        },
+        nodePath.posix,
+      ).checkStatus,
+    ).toBe("pass");
+  });
+
+  it("passes for an absolute path, whatever the working folder", () => {
+    const matchCheck = checkTraceFolderMatch(
+      {
+        configFolder: "C:\\Projects\\shop",
+        workingDirectory: "D:\\elsewhere",
+        traceDirectory: "E:\\krino traces",
+      },
+      nodePath.win32,
+    );
+    expect(matchCheck.checkStatus).toBe("pass");
   });
 });
 

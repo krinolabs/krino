@@ -2,7 +2,13 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import nodePath from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type DoctorDependencies, type DoctorOptions, runDoctor } from "./doctor.js";
+import { createTextStyle } from "../terminal/text-style.js";
+import {
+  type DoctorDependencies,
+  type DoctorOptions,
+  renderDoctorText,
+  runDoctor,
+} from "./doctor.js";
 import { probeFileSystemFromDisk } from "./doctor-checks.js";
 import { buildKrinoConfigFile, KRINO_CONFIG_FILE_NAME } from "./init-config.js";
 
@@ -133,7 +139,7 @@ function statusOf(outputText: string, checkName: string): string | null {
     .find(
       (outputLine) => outputLine.includes(`  ${checkName}  `) || outputLine.endsWith(checkName),
     );
-  return /\b(PASS|WARN|FAIL)\b/.exec(checkLine ?? "")?.[1] ?? null;
+  return /\b(PASS|WARN|FAIL|SKIP)\b/.exec(checkLine ?? "")?.[1] ?? null;
 }
 
 beforeEach(async () => {
@@ -262,7 +268,44 @@ describe("krino doctor output", () => {
     expect(statusOf(doctorRun.outputText, KRINO_CONFIG_FILE_NAME)).toBe("WARN");
     expect(statusOf(doctorRun.outputText, "Recent traces")).toBe("WARN");
     expect(statusOf(doctorRun.outputText, "Host SDK")).toBe("WARN");
+    expect(statusOf(doctorRun.outputText, "Decision provider")).toBe("SKIP");
+    expect(statusOf(doctorRun.outputText, "Cut-offs")).toBe("SKIP");
+    expect(statusOf(doctorRun.outputText, "Cache health")).toBe("SKIP");
+    expect(doctorRun.outputText).toContain("3 skipped");
     expect(doctorRun.exitCode).toBe(0);
+  });
+
+  it("does not count skips as passes, and skips alone keep exit code 0", async () => {
+    await writeConfig("traces");
+    await installPackage("ai", "7.0.126");
+    // One single-step run, no decisions: nothing for the provider, cut-off or cache checks.
+    const quietStep = JSON.parse(stepLine("run-1", 0, "jev-1"));
+    quietStep.decisions = [];
+    await writeTraces(nodePath.join(projectFolder, "traces"), [JSON.stringify(quietStep)]);
+
+    const doctorRun = await runDoctorWith();
+
+    const passLineCount = doctorRun.outputText
+      .split("\n")
+      .filter((outputLine) => /^\s+PASS\s/.test(outputLine)).length;
+    expect(doctorRun.outputText).toContain(`${passLineCount} pass, 0 warn, 0 fail, 3 skipped`);
+    expect(statusOf(doctorRun.outputText, "Decision provider")).toBe("SKIP");
+    expect(statusOf(doctorRun.outputText, "Cache health")).toBe("SKIP");
+    expect(doctorRun.outputText).not.toContain("fix:");
+    expect(doctorRun.exitCode).toBe(0);
+  });
+
+  it("renders skips dimmed", () => {
+    const renderedText = renderDoctorText(
+      [
+        { checkName: "Node.js", checkStatus: "pass", detail: "22.12.0", fixLine: null },
+        { checkName: "Cache health", checkStatus: "skip", detail: "nothing yet", fixLine: null },
+      ],
+      createTextStyle(true),
+    );
+    const skipLine = renderedText.split("\n").find((outputLine) => outputLine.includes("SKIP"));
+    expect(skipLine).toBe("\u001b[2m  SKIP  Cache health  nothing yet\u001b[22m");
+    expect(renderedText).toContain("1 pass, 0 warn, 0 fail, 1 skipped");
   });
 });
 
@@ -277,6 +320,48 @@ describe("krino doctor trace folder", () => {
     expect(doctorRun.outputText).toContain(`${nodePath.join(projectFolder, "traces")} is writable`);
     expect(statusOf(doctorRun.outputText, "Recent traces")).toBe("PASS");
     expect(statusOf(doctorRun.outputText, "ai")).toBe("PASS");
+  });
+
+  it("warns when the runtime would resolve the relative traceDirectory to another folder", async () => {
+    await writeHealthyProject();
+    const nestedFolder = nodePath.join(projectFolder, "src", "agents");
+    await mkdir(nestedFolder, { recursive: true });
+
+    const doctorRun = await runDoctorWith({ workingDirectory: () => nestedFolder });
+
+    expect(statusOf(doctorRun.outputText, "Config trace folder")).toBe("WARN");
+    expect(doctorRun.outputText).toContain(nodePath.join(nestedFolder, "traces"));
+    expect(doctorRun.outputText).toContain(
+      "fix: Use an absolute path or set KRINO_TRACE_DIRECTORY so the runtime and the CLI use the same folder.",
+    );
+    expect(doctorRun.exitCode).toBe(0);
+  });
+
+  it("passes the folder match when run from the config file's folder", async () => {
+    await writeHealthyProject();
+
+    const doctorRun = await runDoctorWith();
+
+    expect(statusOf(doctorRun.outputText, "Config trace folder")).toBe("PASS");
+  });
+
+  it("passes the folder match for an absolute traceDirectory from any folder", async () => {
+    const absoluteTraceFolder = nodePath.join(projectFolder, "abs traces");
+    await writeConfig(absoluteTraceFolder);
+    const nestedFolder = nodePath.join(projectFolder, "src");
+    await mkdir(nestedFolder, { recursive: true });
+
+    const doctorRun = await runDoctorWith({ workingDirectory: () => nestedFolder });
+
+    expect(statusOf(doctorRun.outputText, "Config trace folder")).toBe("PASS");
+  });
+
+  it("leaves the folder match out when the config has no traceDirectory", async () => {
+    await writeConfig(null);
+
+    const doctorRun = await runDoctorWith();
+
+    expect(doctorRun.outputText).not.toContain("Config trace folder");
   });
 
   it("resolves a traceDirectory with platform separators and spaces", async () => {

@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { stat, unlink, writeFile } from "node:fs/promises";
 import nodePath from "node:path";
-import { type DoctorCheck, failCheck, passCheck, warnCheck } from "./doctor-check.js";
+import { cacheShares } from "../report/build-report.js";
+import { type DoctorCheck, failCheck, passCheck, skipCheck, warnCheck } from "./doctor-check.js";
 import type { TraceScanSummary } from "./doctor-trace-scan.js";
-import { KRINO_CONFIG_FILE_NAME } from "./init-config.js";
+import { KRINO_CONFIG_FILE_NAME, resolveConfiguredTraceDirectory } from "./init-config.js";
 
 export const MINIMUM_NODE_MAJOR_VERSION = 22;
 
@@ -66,6 +67,50 @@ export function checkConfigFile(configLookup: ConfigLookup): DoctorCheck {
   );
 }
 
+export type TraceFolderMatchInput = {
+  /** The folder that holds `krino.config.json`. */
+  configFolder: string;
+  /** Where the runtime's file sink resolves a relative `traceDirectory` from. */
+  workingDirectory: string;
+  /** `traceDirectory` as written in the config. */
+  traceDirectory: string;
+};
+
+export const TRACE_FOLDER_MATCH_FIX_LINE =
+  "Use an absolute path or set KRINO_TRACE_DIRECTORY so the runtime and the CLI use the same folder.";
+
+/**
+ * The CLI resolves a relative `traceDirectory` from the config file's folder; the runtime's file
+ * sink, given the same value, resolves it from the process's working folder. Warns when the two
+ * differ.
+ */
+export function checkTraceFolderMatch(
+  matchInput: TraceFolderMatchInput,
+  pathModule: Pick<typeof nodePath, "isAbsolute" | "resolve" | "sep">,
+): DoctorCheck {
+  const checkName = "Config trace folder";
+  const cliFolder = resolveConfiguredTraceDirectory(
+    matchInput.configFolder,
+    matchInput.traceDirectory,
+    pathModule,
+  );
+  if (pathModule.isAbsolute(matchInput.traceDirectory)) {
+    return passCheck(checkName, `${cliFolder} (absolute path)`);
+  }
+  const runtimeFolder = pathModule.resolve(matchInput.workingDirectory, matchInput.traceDirectory);
+  // Windows paths are case-insensitive.
+  const comparable = (folderPath: string): string =>
+    pathModule.sep === "\\" ? folderPath.toLowerCase() : folderPath;
+  if (comparable(cliFolder) === comparable(runtimeFolder)) {
+    return passCheck(checkName, `${cliFolder} (same from the config folder and this folder)`);
+  }
+  return warnCheck(
+    checkName,
+    `"${matchInput.traceDirectory}" is ${cliFolder} for the CLI (from the config folder) but ${runtimeFolder} for the runtime (from this folder)`,
+    TRACE_FOLDER_MATCH_FIX_LINE,
+  );
+}
+
 /** Prints only "present" or "missing", never the value. */
 export function checkGatewayKey(
   environment: Readonly<Record<string, string | undefined>>,
@@ -83,7 +128,7 @@ export function checkGatewayKey(
 export function checkFakeProvider(traceSummary: TraceScanSummary): DoctorCheck {
   const checkName = "Decision provider";
   if (traceSummary.decisionCount === 0) {
-    return passCheck(checkName, "no recent decisions to check");
+    return skipCheck(checkName, "no recent decisions to check");
   }
   if (traceSummary.fakeProviderDecisionCount === 0) {
     return passCheck(checkName, "no recent decisions came from the fake provider");
@@ -158,7 +203,7 @@ export function checkRecentTraces(recentTraceRead: RecentTraceRead): DoctorCheck
 export function checkCutOffRate(traceSummary: TraceScanSummary): DoctorCheck {
   const checkName = "Cut-offs";
   if (traceSummary.decisionCount === 0) {
-    return passCheck(checkName, "no recent decisions to check");
+    return skipCheck(checkName, "no recent decisions to check");
   }
   const cutOffShare = traceSummary.cutOffDecisionCount / traceSummary.decisionCount;
   const detail = `${traceSummary.cutOffDecisionCount} of ${traceSummary.decisionCount} recent decisions cut off (${percent(cutOffShare)})`;
@@ -173,14 +218,16 @@ export function checkCutOffRate(traceSummary: TraceScanSummary): DoctorCheck {
 
 export function checkCacheHealth(traceSummary: TraceScanSummary): DoctorCheck {
   const checkName = "Cache health";
-  const { runCount, uncachedTokens, cacheReadTokens, cacheWriteTokens } =
-    traceSummary.multiStepRunUsage;
-  const totalInputTokens = uncachedTokens + cacheReadTokens + cacheWriteTokens;
-  if (runCount === 0 || totalInputTokens === 0) {
-    return passCheck(checkName, "no multi-step runs with token usage to check");
+  const { runCount } = traceSummary.multiStepRunUsage;
+  // `cacheShares` from `krino report`: the same math and rounding as the report's cache health.
+  const cacheReadShare = cacheShares([traceSummary.multiStepRunUsage]).cacheReadShare;
+  if (runCount === 0 || cacheReadShare === null) {
+    return skipCheck(checkName, "no multi-step runs with token usage to check");
   }
-  const cacheReadShare = cacheReadTokens / totalInputTokens;
-  const detail = `${percent(cacheReadShare)} of input tokens read from cache over ${runCount} multi-step runs`;
+  const allRunsShare = cacheShares(traceSummary.cacheUsageByHost).cacheReadShare;
+  const allRunsText =
+    allRunsShare === null ? "" : ` (all runs: ${percent(allRunsShare)}, as in krino report)`;
+  const detail = `${percent(cacheReadShare)} of input tokens read from cache over ${runCount} multi-step runs${allRunsText}`;
   return cacheReadShare < CACHE_READ_SHARE_MINIMUM
     ? warnCheck(
         checkName,

@@ -16,6 +16,7 @@ import {
   checkGatewayKey,
   checkNodeVersion,
   checkRecentTraces,
+  checkTraceFolderMatch,
   checkTraceFolderWritable,
   type ProbeFileSystem,
   probeFileSystemFromDisk,
@@ -182,6 +183,18 @@ export async function collectDoctorChecks(
   return [
     checkNodeVersion(dependencies.nodeVersion),
     checkConfigFile(configLookup),
+    ...(validConfig === null || validConfig.traceDirectory === null
+      ? []
+      : [
+          checkTraceFolderMatch(
+            {
+              configFolder: nodePath.dirname(validConfig.configPath),
+              workingDirectory,
+              traceDirectory: validConfig.traceDirectory,
+            },
+            nodePath,
+          ),
+        ]),
     ...checkHostSdkVersions(installedHostSdks),
     checkGatewayKey(dependencies.environment),
     checkFakeProvider(traceSummary),
@@ -196,6 +209,7 @@ const STATUS_LABELS: ReadonlyMap<DoctorCheckStatus, string> = new Map([
   ["pass", "PASS"],
   ["warn", "WARN"],
   ["fail", "FAIL"],
+  ["skip", "SKIP"],
 ]);
 
 function styledStatus(checkStatus: DoctorCheckStatus, textStyle: TextStyle): string {
@@ -208,6 +222,15 @@ function styledStatus(checkStatus: DoctorCheckStatus, textStyle: TextStyle): str
     : textStyle.bold(textStyle.warning(statusLabel));
 }
 
+function checkLine(doctorCheck: DoctorCheck, nameWidth: number, textStyle: TextStyle): string {
+  const lineText = (statusText: string): string =>
+    `  ${statusText}  ${doctorCheck.checkName.padEnd(nameWidth)}  ${doctorCheck.detail}`;
+  // A skip is not a result: the whole line is dimmed.
+  return doctorCheck.checkStatus === "skip"
+    ? textStyle.dim(lineText(STATUS_LABELS.get("skip") ?? "SKIP"))
+    : lineText(styledStatus(doctorCheck.checkStatus, textStyle));
+}
+
 /** One line per check, a fix line under each warn or fail, then the totals. */
 export function renderDoctorText(
   doctorChecks: ReadonlyArray<DoctorCheck>,
@@ -215,7 +238,7 @@ export function renderDoctorText(
 ): string {
   const nameWidth = Math.max(...doctorChecks.map((doctorCheck) => doctorCheck.checkName.length));
   const checkLines = doctorChecks.flatMap((doctorCheck) => [
-    `  ${styledStatus(doctorCheck.checkStatus, textStyle)}  ${doctorCheck.checkName.padEnd(nameWidth)}  ${doctorCheck.detail}`,
+    checkLine(doctorCheck, nameWidth, textStyle),
     ...(doctorCheck.fixLine === null
       ? []
       : [`        ${textStyle.dim(`fix: ${doctorCheck.fixLine}`)}`]),
@@ -227,7 +250,7 @@ export function renderDoctorText(
     "",
     ...checkLines,
     "",
-    `${countOf("pass")} pass, ${countOf("warn")} warn, ${countOf("fail")} fail`,
+    `${countOf("pass")} pass, ${countOf("warn")} warn, ${countOf("fail")} fail, ${countOf("skip")} skipped`,
     "",
   ].join("\n");
 }

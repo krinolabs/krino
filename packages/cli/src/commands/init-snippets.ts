@@ -20,8 +20,9 @@ function createKrinoLines(snippetInput: WrapperSnippetInput): Array<string> {
           ...(isAbsoluteOnAnyPlatform(snippetInput.traceDirectory)
             ? []
             : [
-                "  // The sink resolves a relative folder from the process's working directory,",
-                "  // krino.config.json from its own folder: run from that folder.",
+                "  // The sink resolves a relative folder from the working folder, the CLI from",
+                "  // krino.config.json's folder. Use an absolute path or set KRINO_TRACE_DIRECTORY",
+                "  // so the runtime and the CLI use the same folder.",
               ]),
           `  traceSink: createFileTraceSink({ projectName: ${projectNameLiteral}, traceDirectory: ${JSON.stringify(snippetInput.traceDirectory)} }),`,
         ];

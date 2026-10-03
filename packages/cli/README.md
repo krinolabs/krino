@@ -13,3 +13,8 @@ finds in `package.json` and never edits your source files.
 
 In v0.1 only the krino CLI (`krino doctor`) reads this file. The runtime does not: pass the same
 `projectName` and `decisionModes` to `createKrino()`.
+
+A relative `traceDirectory` can point at two different folders: the CLI resolves it from the
+config file's folder, while the runtime's file sink resolves the same value from the process's
+working folder. `krino doctor` warns when they differ. Use an absolute path or set
+`KRINO_TRACE_DIRECTORY` so the runtime and the CLI use the same folder.
