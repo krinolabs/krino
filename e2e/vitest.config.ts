@@ -8,5 +8,7 @@ export default defineConfig({
     // The tests start child processes: node, tsc and the installed `krino` CLI.
     testTimeout: 60_000,
     hookTimeout: 60_000,
+    // Show informational lines from passing tests too (the library check's third-party count).
+    silent: false,
   },
 });

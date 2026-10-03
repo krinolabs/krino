@@ -9,6 +9,7 @@ import {
   publicEntrySpecifiers,
   readEntryExports,
 } from "./types/public-exports.js";
+import { classifyTypeDiagnostics } from "./types/type-diagnostics.js";
 
 // The published type declarations, as a consumer with a strict tsconfig sees them.
 // `consumer/src/public-api.ts` uses every public export; this test fails when an export is added
@@ -52,14 +53,28 @@ describe("published types in a strict consumer project", () => {
         entryDeclaration,
       ).toBe(true);
     }
-    const krinoDiagnostics = outputLines.filter(
-      (outputLine) => /error TS\d+/.test(outputLine) && /@krinolabs[/+]/.test(outputLine),
+    const classified = classifyTypeDiagnostics(outputLines.join("\n"));
+    // Third-party declarations report errors of their own under this strict config; for
+    // information only.
+    console.log(
+      `e2e: library check: ${classified.thirdPartyDiagnosticCount} third-party diagnostics (not failing)`,
     );
-    const consumerDiagnostics = outputLines.filter((outputLine) =>
-      /^src\/.*error TS\d+/.test(outputLine),
+    expect(classified.failingDiagnostics).toEqual([]);
+  });
+
+  it("still fails on a deliberate type error in the consumer's own file", async () => {
+    const fixtureCheck = await runCommand(
+      "pnpm",
+      ["exec", "tsc", "-p", "tsconfig.type-error-fixture.json"],
+      { workingDirectory: consumer.directory, environment: consumerEnvironment() },
     );
-    expect(krinoDiagnostics).toEqual([]);
-    expect(consumerDiagnostics).toEqual([]);
+    const classified = classifyTypeDiagnostics(fixtureCheck.stdout + fixtureCheck.stderr);
+    expect(fixtureCheck.exitCode).not.toBe(0);
+    expect(classified.failingDiagnostics).toEqual([
+      expect.stringMatching(
+        /^type-error-fixture[\\/]deliberate-type-error\.ts\(\d+,\d+\): error TS2322/,
+      ),
+    ]);
   });
 
   it("public-api.ts imports every export of every @krinolabs/krino entry point", async () => {
