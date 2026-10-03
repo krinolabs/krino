@@ -20,7 +20,7 @@ pnpm start --fake --trace-dir ./traces
 
 A scripted Agent SDK message stream stands in for `query()`; every line it prints is labelled
 `[simulated]`. krino's hooks and fake decision provider run for real.
-`--tools 10|25|50|100` sets how many catalog tools the agent gets (default 100).
+`--task task-052` runs a task that calls a write tool; `--tools 10|25|50|100` sets the tool count.
 
 ## Run live
 

@@ -10,7 +10,6 @@ import {
   createLogTriageKrinoConfig,
   FLUSH_TIMEOUT_IN_MILLISECONDS,
   LIVE_MODEL_IDENTIFIER,
-  LOG_TRIAGE_TASK_TEXT,
   MAX_TURN_COUNT,
   PROJECT_NAME,
   SYSTEM_PROMPT,
@@ -18,6 +17,7 @@ import {
   type ToolCount,
   toAgentToolDescriptions,
 } from "./log-triage.js";
+import type { ResolvedExampleTask } from "./log-triage-tasks.js";
 
 /** Starts the agent: the real `query()` when live, a scripted message stream with --fake. */
 export type StartAgent = (queryOptions: Options) => AsyncIterable<SDKMessage>;
@@ -27,6 +27,7 @@ export type LogTriageRunOptions = {
   decisionProvider: DecisionProvider;
   traceDirectory: string;
   toolCount: ToolCount;
+  task: ResolvedExampleTask;
 };
 
 export type LogTriageResult = {
@@ -83,7 +84,10 @@ function toBenchToolName(agentToolName: string): string {
 
 /** Runs the agent once with krino in shadow mode, then waits until the traces are written. */
 export async function runLogTriage(runOptions: LogTriageRunOptions): Promise<LogTriageResult> {
-  const toolNames = selectLogTriageToolNames(runOptions.toolCount);
+  const toolNames = selectLogTriageToolNames(
+    runOptions.toolCount,
+    runOptions.task.expectedToolNames,
+  );
   const toolDescriptions = toAgentToolDescriptions(toolNames);
   const krino = createKrino(
     createLogTriageKrinoConfig({
@@ -98,7 +102,7 @@ export async function runLogTriage(runOptions: LogTriageRunOptions): Promise<Log
   const krinoRun = await krinoAgentOptions(
     buildQueryOptions(toolNames),
     krino,
-    LOG_TRIAGE_TASK_TEXT,
+    runOptions.task.taskText,
     { toolDescriptions },
   );
 

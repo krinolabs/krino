@@ -19,7 +19,7 @@ pnpm start --fake --trace-dir ./traces
 ```
 
 The AI SDK mock language model plays the run and krino's fake decision provider answers.
-`--tools 10|25|50|100` sets how many catalog tools the agent gets (default 100).
+`--task task-052` runs a task that calls a write tool; `--tools 10|25|50|100` sets the tool count.
 
 ## Run live
 
