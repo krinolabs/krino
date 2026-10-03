@@ -47,7 +47,6 @@ export type ConsumerManifest = {
 
 export type ConsumerSettings = {
   overrides: Record<string, string>;
-  autoInstallPeers: false;
   storeDir?: string;
   cacheDir?: string;
 };
@@ -140,7 +139,6 @@ export function planConsumerProject(planInput: ConsumerPlanInput): ConsumerPlan 
   const isOffline = planInput.installMode === "offline";
   const settings: ConsumerSettings = {
     overrides: Object.fromEntries(buildOverrides(planInput)),
-    autoInstallPeers: false,
     ...(isOffline
       ? {
           storeDir: forwardSlashes(planInput.storeDirectory),

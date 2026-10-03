@@ -64,7 +64,9 @@ describe("planConsumerProject", () => {
     expect(consumerPlan.installArguments).toEqual(["install", "--offline", "--no-frozen-lockfile"]);
     expect(consumerPlan.settings.storeDir).toBe("/tmp/e2e/store");
     expect(consumerPlan.settings.cacheDir).toBe("/tmp/e2e/cache");
-    expect(consumerPlan.settings.autoInstallPeers).toBe(false);
+    // pnpm's default autoInstallPeers stays on, as for a user: ai's peer zod is installed, and
+    // krino's peers (ai, the Agent SDK) are optional, so pnpm never adds them.
+    expect(Object.hasOwn(consumerPlan.settings, "autoInstallPeers")).toBe(false);
   });
 
   it("online: overrides only the packed packages, so the CLI never gets the npm placeholder", () => {

@@ -8,10 +8,18 @@ import { installConsumers } from "./install-consumers.js";
 import { packPackages } from "./pack-packages.js";
 
 // Runs once before every test file: packs the packages into a temp folder, installs the consumer
-// projects from the tarballs, and hands the paths to the tests. Deletes the folder afterwards
-// unless KRINO_E2E_KEEP=1 (to inspect a failure).
+// projects from the tarballs, and hands the paths to the tests. Afterwards it deletes the folder
+// (unless KRINO_E2E_KEEP=1, to inspect a failure) and fails the run if it took longer than the
+// budget: WP-14 must run in CI in under 3 minutes, and the packages' build runs before this.
 
 const WORKSPACE_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
+
+/** Pack, install and every test file. Online mode downloads packages, so it gets no budget. */
+export const OFFLINE_RUN_BUDGET_IN_SECONDS = 150;
+
+function secondsSince(startedAt: number): number {
+  return (performance.now() - startedAt) / 1000;
+}
 
 export default async function setup(testProject: TestProject): Promise<() => Promise<void>> {
   const startedAt = performance.now();
@@ -31,11 +39,19 @@ export default async function setup(testProject: TestProject): Promise<() => Pro
     ...installedConsumers,
   };
   testProject.provide("e2eContext", e2eContext);
-  const setupSeconds = ((performance.now() - startedAt) / 1000).toFixed(1);
-  console.log(`e2e: packed and installed (${installMode}) in ${setupSeconds}s at ${workRoot}`);
+  console.log(
+    `e2e: packed and installed (${installMode}) in ${secondsSince(startedAt).toFixed(1)}s at ${workRoot}`,
+  );
   return async () => {
     if (process.env.KRINO_E2E_KEEP !== "1") {
       await rm(workRoot, { recursive: true, force: true, maxRetries: 5 });
+    }
+    const runSeconds = secondsSince(startedAt);
+    console.log(`e2e: finished in ${runSeconds.toFixed(1)}s`);
+    if (installMode === "offline" && runSeconds > OFFLINE_RUN_BUDGET_IN_SECONDS) {
+      throw new Error(
+        `e2e took ${runSeconds.toFixed(1)}s, over its ${OFFLINE_RUN_BUDGET_IN_SECONDS}s budget.`,
+      );
     }
   };
 }
