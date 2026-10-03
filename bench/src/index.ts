@@ -16,6 +16,7 @@ export {
   type MockToolParameter,
   type MockToolParameterType,
 } from "./catalog/mock-tool-definition.js";
+export { selectToolSubset, type ToolSubsetOptions } from "./catalog/select-tool-subset.js";
 export {
   type CatalogSizeEstimate,
   CHARACTERS_PER_TOKEN,
