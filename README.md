@@ -19,8 +19,9 @@ krino puts a small, cheap decision model next to your agent:
   answers. Your agent behaves exactly as before.
 - **See the cost.** `krino report` reads the traces and shows what each decision would save,
   with prompt-cache reads and writes included.
-- **Enforce when the data agrees.** Turn on one decision at a time. krino fails safe: tool
-  selection falls back to all tools, and the risk gate falls back to "ask a human".
+- **Enforce when the data agrees.** Turn on enforce mode for tool selection. If the decision
+  model is slow or unsure, krino sends all tools. The risk gate stays in shadow mode in v0.1;
+  when it is unsure, it suggests asking a human.
 
 In our benchmark, choosing tools once at step 0 changed the cost per step by
 [BENCH: cost per step, step-zero vs baseline], with a selection recall of

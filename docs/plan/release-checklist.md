@@ -36,7 +36,8 @@ pull request before step 11.
       workflow `release.yml`. Check that `@krinolabs/krino` has the same trusted publisher.
 - [ ] **12. Merge the "Version packages" pull request.** It must bump `@krinolabs/krino` to
       0.1.0 and `@krinolabs/cli` to 0.1.0. The Release workflow then publishes both with
-      provenance.
+      provenance. Changesets skips private packages: until step 9 lands on `main`, that pull
+      request bumps only `@krinolabs/krino`, and the CLI changeset stays pending.
 - [ ] **13. Fresh-project install test from npm.** In an empty folder, on Node 22, follow both
       quick starts in `README.md` word for word, with packages from the npm registry. Then run
       `npx krino report` and `npx krino doctor`.
