@@ -1143,6 +1143,105 @@ describe("recordStep and finishRun", () => {
   });
 });
 
+describe("finishRun fills toolSelectionAgreement from the settled step-0 suggestion", () => {
+  async function finishedSummary(
+    testOptions: TestRuntimeOptions,
+    summaryFields: Parameters<typeof runSummaryInput>[0],
+    stepNumber = 0,
+  ) {
+    const { krinoRuntime, traceSink } = createTestRuntime(testOptions);
+    const runHandle = krinoRuntime.startRun(aiSdkRunStart());
+    const outcome = await settleNow(runHandle.decideToolSelection(stepContext(stepNumber)));
+    runHandle.recordStep(stepTraceInput({ stepNumber, decisions: [outcome.decisionRecord] }));
+    const finishPromise = runHandle.finishRun(runSummaryInput(summaryFields));
+    await vi.advanceTimersByTimeAsync(2_000);
+    await finishPromise;
+    return traceSink.runSummaries()[0];
+  }
+
+  const searchOnly = {
+    decisionProvider: createLocalTestProvider(answerToolsNeeded(["search"], 1)),
+  };
+
+  it("true when every used tool is inside the suggested set", async () => {
+    const runSummary = await finishedSummary(searchOnly, { usedToolNames: ["search"] });
+    expect(runSummary?.toolSelectionAgreement).toBe(true);
+  });
+
+  it("true when no tool was used", async () => {
+    const runSummary = await finishedSummary(searchOnly, { usedToolNames: [] });
+    expect(runSummary?.toolSelectionAgreement).toBe(true);
+  });
+
+  it("false when a used tool is outside the suggested set", async () => {
+    const runSummary = await finishedSummary(searchOnly, {
+      usedToolNames: ["search", "sendEmail"],
+    });
+    expect(runSummary?.toolSelectionAgreement).toBe(false);
+  });
+
+  it("true in enforce mode when the used tools are inside the applied suggestion", async () => {
+    const runSummary = await finishedSummary(
+      {
+        decisionProvider: createLocalTestProvider(answerToolsNeeded(["search"], 1)),
+        configFields: { decisionModes: { toolSelection: "enforce" }, explorationRate: 0 },
+      },
+      { usedToolNames: ["search"] },
+    );
+    expect(runSummary?.toolSelectionAgreement).toBe(true);
+  });
+
+  it("null when the suggestion was cut off", async () => {
+    const runSummary = await finishedSummary(
+      {
+        decisionProvider: createLocalTestProvider(answerToolsNeeded(["search"], 1), FIVE_SECONDS),
+        configFields: { decisionTimeoutInMilliseconds: 10_000 },
+      },
+      { usedToolNames: ["search"] },
+    );
+    expect(runSummary?.toolSelectionAgreement).toBeNull();
+  });
+
+  it("null when the provider timed out", async () => {
+    const runSummary = await finishedSummary(
+      {
+        decisionProvider: createLocalTestProvider(answerToolsNeeded(["search"], 1), FIVE_SECONDS),
+        configFields: { decisionTimeoutInMilliseconds: 1_000 },
+      },
+      { usedToolNames: ["search"] },
+    );
+    expect(runSummary?.toolSelectionAgreement).toBeNull();
+  });
+
+  it("null for an exploration sample", async () => {
+    const runSummary = await finishedSummary(
+      {
+        decisionProvider: createLocalTestProvider(answerToolsNeeded(["search"], 1)),
+        configFields: {
+          decisionModes: { toolSelection: "enforce" },
+          explorationRate: 0.05,
+          randomSource: () => 0,
+        },
+      },
+      { usedToolNames: ["search"] },
+    );
+    expect(runSummary?.toolSelectionAgreement).toBeNull();
+  });
+
+  it("null when the only suggestion was after step 0", async () => {
+    const runSummary = await finishedSummary(searchOnly, { usedToolNames: ["search"] }, 1);
+    expect(runSummary?.toolSelectionAgreement).toBeNull();
+  });
+
+  it("keeps a value the adapter already computed", async () => {
+    const runSummary = await finishedSummary(searchOnly, {
+      usedToolNames: ["sendEmail"],
+      toolSelectionAgreement: true,
+    });
+    expect(runSummary?.toolSelectionAgreement).toBe(true);
+  });
+});
+
 describe("createKrino", () => {
   it("validates the config", () => {
     expect(() => createKrino({ projectName: "", decisionModes: {} })).toThrow(

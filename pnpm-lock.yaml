@@ -230,6 +230,9 @@ importers:
 
   packages/krino:
     devDependencies:
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: 0.3.286
+        version: 0.3.286(@anthropic-ai/sdk@0.131.0(zod@4.6.5))(@modelcontextprotocol/sdk@1.31.0(zod@4.6.5))(zod@4.6.5)
       '@vitest/coverage-v8':
         specifier: 5.0.3
         version: 5.0.3(vitest@5.0.3)
