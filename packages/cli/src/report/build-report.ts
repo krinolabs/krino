@@ -341,12 +341,38 @@ export function cacheShares(
   };
 }
 
+/** The multi-step part of a usage row, in the shape `cacheShares` reads. */
+function multiStepUsage(
+  usageRow: CacheUsageRow,
+): Pick<CacheUsageRow, "uncachedTokens" | "cacheReadTokens" | "cacheWriteTokens"> {
+  return {
+    uncachedTokens: usageRow.multiStepUncachedTokens,
+    cacheReadTokens: usageRow.multiStepCacheReadTokens,
+    cacheWriteTokens: usageRow.multiStepCacheWriteTokens,
+  };
+}
+
 function buildCacheHealth(cacheUsage: ReadonlyArray<CacheUsageRow>): CacheHealthReport {
+  const sortedUsage = [...cacheUsage].sort((left, right) =>
+    left.hostName.localeCompare(right.hostName),
+  );
   return {
     overall: cacheShares(cacheUsage),
-    byHost: [...cacheUsage]
-      .sort((left, right) => left.hostName.localeCompare(right.hostName))
-      .map((usageRow) => ({ hostName: usageRow.hostName, ...cacheShares([usageRow]) })),
+    byHost: sortedUsage.map((usageRow) => ({
+      hostName: usageRow.hostName,
+      ...cacheShares([usageRow]),
+    })),
+    multiStepRuns: {
+      runCount: cacheUsage.reduce((total, usageRow) => total + usageRow.multiStepRunCount, 0),
+      overall: cacheShares(cacheUsage.map(multiStepUsage)),
+      byHost: sortedUsage
+        .filter((usageRow) => usageRow.multiStepRunCount > 0)
+        .map((usageRow) => ({
+          hostName: usageRow.hostName,
+          runCount: usageRow.multiStepRunCount,
+          ...cacheShares([multiStepUsage(usageRow)]),
+        })),
+    },
   };
 }
 

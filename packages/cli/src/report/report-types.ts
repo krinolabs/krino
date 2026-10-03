@@ -159,8 +159,19 @@ export type CacheShares = {
 };
 
 export type CacheHealthReport = {
+  /** All runs. */
   overall: CacheShares;
   byHost: Array<CacheShares & { hostName: string }>;
+  /**
+   * Runs with more than one step only: a one-step run cannot read from the cache, so this is the
+   * share the "next step" rule (and `krino doctor`) judges. Added within `reportSchemaVersion` 1.
+   */
+  multiStepRuns: {
+    /** Multi-step runs, counted once per host they used. */
+    runCount: number;
+    overall: CacheShares;
+    byHost: Array<CacheShares & { hostName: string; runCount: number }>;
+  };
 };
 
 export type CutOffSummary = {

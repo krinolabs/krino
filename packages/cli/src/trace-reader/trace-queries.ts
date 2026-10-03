@@ -336,27 +336,55 @@ WHERE decisionKind = 'riskGate'
 GROUP BY ALL
 ORDER BY ALL`;
 
-/** Input tokens per host. Each run counts once: its summary, else the sum of its steps. */
+/**
+ * Input tokens per host. Each run counts once: its summary, else the sum of its steps. The
+ * `multi_step_*` columns repeat the sums over runs with more than one step (the summary's
+ * `stepCount`, else the number of step records): one-step runs cannot read from the cache.
+ * `krino doctor` computes the same rows in `commands/doctor-trace-scan.ts`; a parity test checks.
+ */
 export const CACHE_USAGE_SQL = `
 WITH run_usage AS (
-  SELECT hostName,
+  SELECT projectName, runIdentifier, hostName,
     totalTokenUsage.inputTokens AS uncached_tokens,
     totalTokenUsage.cacheReadTokens AS cache_read_tokens,
     totalTokenUsage.cacheWriteTokens AS cache_write_tokens
   FROM run_summaries
   UNION ALL
-  SELECT step.hostName,
+  SELECT step.projectName, step.runIdentifier, step.hostName,
     step.tokenUsage.inputTokens,
     step.tokenUsage.cacheReadTokens,
     step.tokenUsage.cacheWriteTokens
   FROM step_records AS step
   ANTI JOIN run_summaries USING (projectName, runIdentifier)
   WHERE step.tokenUsage IS NOT NULL
+),
+run_step_counts AS (
+  SELECT projectName, runIdentifier, max(stepCount) AS run_step_count
+  FROM run_summaries
+  GROUP BY ALL
+  UNION ALL
+  SELECT step.projectName, step.runIdentifier, count(*) AS run_step_count
+  FROM step_records AS step
+  ANTI JOIN run_summaries USING (projectName, runIdentifier)
+  GROUP BY ALL
+),
+classified_usage AS (
+  SELECT run_usage.*, run_step_count > 1 AS is_multi_step
+  FROM run_usage
+  JOIN run_step_counts USING (projectName, runIdentifier)
 )
 SELECT hostName AS host_name,
   sum(uncached_tokens)::DOUBLE AS uncached_tokens,
   sum(cache_read_tokens)::DOUBLE AS cache_read_tokens,
-  sum(cache_write_tokens)::DOUBLE AS cache_write_tokens
-FROM run_usage
-GROUP BY ALL
-ORDER BY ALL`;
+  sum(cache_write_tokens)::DOUBLE AS cache_write_tokens,
+  count(DISTINCT [projectName, runIdentifier]) FILTER (WHERE is_multi_step)::DOUBLE
+    AS multi_step_run_count,
+  coalesce(sum(uncached_tokens) FILTER (WHERE is_multi_step), 0)::DOUBLE
+    AS multi_step_uncached_tokens,
+  coalesce(sum(cache_read_tokens) FILTER (WHERE is_multi_step), 0)::DOUBLE
+    AS multi_step_cache_read_tokens,
+  coalesce(sum(cache_write_tokens) FILTER (WHERE is_multi_step), 0)::DOUBLE
+    AS multi_step_cache_write_tokens
+FROM classified_usage
+GROUP BY hostName
+ORDER BY hostName`;
