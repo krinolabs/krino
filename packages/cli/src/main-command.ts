@@ -31,6 +31,7 @@ export const mainCommand = defineCommand({
   },
   subCommands: {
     report: () => import("./commands/report.js").then((reportModule) => reportModule.reportCommand),
+    init: () => import("./commands/init.js").then((initModule) => initModule.initCommand),
   },
 });
 
