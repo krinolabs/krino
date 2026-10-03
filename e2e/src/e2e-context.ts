@@ -10,10 +10,20 @@ export type PackedPackage = {
   tarballPath: string;
 };
 
+export type ConsumerProject = {
+  directory: string;
+  /** `true` when `ai` and `@anthropic-ai/claude-agent-sdk` are installed. */
+  hasHostSdks: boolean;
+};
+
 export type E2eContext = {
   workspaceRoot: string;
   installMode: InstallMode;
   packedPackages: Array<PackedPackage>;
+  /** Both tarballs, `ai`, the Agent SDK, `typescript` and `@types/node`. */
+  consumerWithHostSdks: ConsumerProject;
+  /** Both tarballs only. */
+  consumerWithoutHostSdks: ConsumerProject;
 };
 
 declare module "vitest" {

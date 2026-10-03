@@ -10,6 +10,11 @@ export type RunCommandOptions = {
   workingDirectory: string;
   environment?: NodeJS.ProcessEnv;
   timeoutInMilliseconds?: number;
+  /**
+   * Default: `true` on Windows, where `pnpm` is a `.cmd` file that only a shell can start.
+   * `false` for real executables such as `process.execPath`.
+   */
+  isShellCommand?: boolean;
 };
 
 const DEFAULT_TIMEOUT_IN_MILLISECONDS = 120_000;
@@ -30,21 +35,21 @@ export function runCommand(
   commandArguments: ReadonlyArray<string>,
   runCommandOptions: RunCommandOptions,
 ): Promise<CommandResult> {
-  const isWindows = process.platform === "win32";
+  const isShellCommand = runCommandOptions.isShellCommand ?? process.platform === "win32";
   return new Promise((resolvePromise, rejectPromise) => {
-    // On Windows the whole command goes to the shell as one string: Node deprecates passing
-    // separate arguments together with `shell: true` (DEP0190).
+    // A shell command goes to the shell as one string: Node deprecates passing separate
+    // arguments together with `shell: true` (DEP0190).
     execFile(
-      isWindows
+      isShellCommand
         ? [commandName, ...commandArguments].map(quoteForWindowsShell).join(" ")
         : commandName,
-      isWindows ? [] : [...commandArguments],
+      isShellCommand ? [] : [...commandArguments],
       {
         cwd: runCommandOptions.workingDirectory,
         env: runCommandOptions.environment ?? process.env,
         timeout: runCommandOptions.timeoutInMilliseconds ?? DEFAULT_TIMEOUT_IN_MILLISECONDS,
         maxBuffer: 32 * 1024 * 1024,
-        shell: isWindows,
+        shell: isShellCommand,
         windowsHide: true,
       },
       (commandError, stdout, stderr) => {
