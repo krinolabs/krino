@@ -1,6 +1,26 @@
 {
   "name": "@krinolabs/example-ai-sdk-cli",
   "version": "0.0.0",
+  "description": "Log-triage CLI agent on the Vercel AI SDK, with krino in shadow mode.",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "dependencies": {
+    "@krinolabs/bench": "workspace:*",
+    "@krinolabs/krino": "workspace:*",
+    "ai": "7.0.126"
+  },
+  "devDependencies": {
+    "@krinolabs/cli": "workspace:*"
+  }
 }

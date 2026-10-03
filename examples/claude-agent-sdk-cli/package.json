@@ -1,6 +1,26 @@
 {
   "name": "@krinolabs/example-claude-agent-sdk-cli",
   "version": "0.0.0",
+  "description": "Log-triage CLI agent on the Claude Agent SDK, with krino in shadow mode.",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "dependencies": {
+    "@krinolabs/bench": "workspace:*",
+    "@krinolabs/krino": "workspace:*",
+    "@anthropic-ai/claude-agent-sdk": "0.3.286"
+  },
+  "devDependencies": {
+    "@krinolabs/cli": "workspace:*"
+  }
 }
