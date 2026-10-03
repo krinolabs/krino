@@ -32,6 +32,7 @@ jobs:
 
   cli-os:
     # The CLI ships DuckDB's native binary; check it loads and the tests pass on each OS.
+    # The e2e package packs krino and the CLI, installs the tarballs and runs them on each OS too.
     name: cli tests (${{ matrix.os }}, node 22)
     runs-on: ${{ matrix.os }}
     strategy:
@@ -46,5 +47,5 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # turbo builds @krinolabs/krino first (test depends on ^build).
-      - run: pnpm turbo run test --filter=@krinolabs/cli
+      # turbo builds @krinolabs/krino first (test depends on ^build); e2e builds both packages.
+      - run: pnpm turbo run test --filter=@krinolabs/cli --filter=@krinolabs/e2e
