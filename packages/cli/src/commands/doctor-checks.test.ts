@@ -122,6 +122,7 @@ describe("checkRecentTraces", () => {
   it("warns when there are no recent trace files", () => {
     const tracesCheck = checkRecentTraces({
       readKind: "read",
+      projectName: null,
       traceDirectory: "C:\\traces\\shop",
       traceFileCount: 0,
       traceSummary: emptySummary(),
@@ -134,6 +135,7 @@ describe("checkRecentTraces", () => {
   it("passes when every line parses", () => {
     const tracesCheck = checkRecentTraces({
       readKind: "read",
+      projectName: null,
       traceDirectory: "/t",
       traceFileCount: 2,
       traceSummary: summarizeTraceLines([], { projectName: null, sinceEpochMilliseconds: 0 }),
@@ -142,6 +144,7 @@ describe("checkRecentTraces", () => {
     expect(tracesCheck.checkStatus).toBe("warn");
     const parsedCheck = checkRecentTraces({
       readKind: "read",
+      projectName: null,
       traceDirectory: "/t",
       traceFileCount: 2,
       traceSummary: summaryWith({
@@ -154,9 +157,24 @@ describe("checkRecentTraces", () => {
     expect(parsedCheck.detail).toContain("2 runs");
   });
 
+  it("warns when lines parse but none are recent records for the project", () => {
+    const tracesCheck = checkRecentTraces({
+      readKind: "read",
+      projectName: "shop",
+      traceDirectory: "/t",
+      traceFileCount: 1,
+      traceSummary: summaryWith({
+        lineCounts: { ...emptySummary().lineCounts, readLineCount: 4, validLineCount: 4 },
+      }),
+    });
+    expect(tracesCheck.checkStatus).toBe("warn");
+    expect(tracesCheck.detail).toContain('none are for project "shop" in the last 7 days');
+  });
+
   it("warns with counts when some lines do not parse", () => {
     const tracesCheck = checkRecentTraces({
       readKind: "read",
+      projectName: null,
       traceDirectory: "/t",
       traceFileCount: 1,
       traceSummary: summaryWith({
@@ -176,6 +194,7 @@ describe("checkRecentTraces", () => {
   it("fails when no line parses", () => {
     const tracesCheck = checkRecentTraces({
       readKind: "read",
+      projectName: null,
       traceDirectory: "/t",
       traceFileCount: 1,
       traceSummary: summaryWith({

@@ -98,6 +98,8 @@ export function checkFakeProvider(traceSummary: TraceScanSummary): DoctorCheck {
 export type RecentTraceRead =
   | {
       readKind: "read";
+      /** The project the records were filtered to; `null` for every project. */
+      projectName: string | null;
       traceDirectory: string;
       traceFileCount: number;
       traceSummary: TraceScanSummary;
@@ -134,6 +136,17 @@ export function checkRecentTraces(recentTraceRead: RecentTraceRead): DoctorCheck
       checkName,
       `${skippedLineCount} of ${lineCounts.readLineCount} lines skipped (${lineCounts.invalidJsonLineCount} invalid JSON, ${lineCounts.unsupportedSchemaVersionLineCount} unsupported schema version, ${lineCounts.invalidShapeLineCount} bad shape)`,
       "Make sure only krino writes to this folder; `krino report` skips the same lines",
+    );
+  }
+  if (agentStepCount + recentTraceRead.traceSummary.runSummaryCount === 0) {
+    const projectText =
+      recentTraceRead.projectName === null
+        ? ""
+        : ` for project ${JSON.stringify(recentTraceRead.projectName)}`;
+    return warnCheck(
+      checkName,
+      `${lineCounts.validLineCount} lines parse, but none are${projectText} in the last 7 days`,
+      "Check --project and the projectName in krino.config.json against createKrino()",
     );
   }
   return passCheck(
