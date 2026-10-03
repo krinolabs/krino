@@ -96,6 +96,7 @@ describe("aggregateMetrics", () => {
     expect(metrics.costPerStep?.meanCacheWriteTokens).toBeCloseTo(2000 / 3);
     expect(metrics.decisions.toolSelectionCount).toBe(2);
     expect(metrics.decisions.confidentSelectionShare).toBe(0.5);
+    expect(metrics.decisions.timedOutSelectionShare).toBe(0);
     expect(metrics.decisions.decisionCostInUsd).toBeCloseTo(0.002);
     expect(metrics.stepLatencyInMilliseconds).toEqual({ p50: 100, p95: 101 });
     expect(metrics.multiStep).toEqual({
@@ -118,6 +119,22 @@ describe("aggregateMetrics", () => {
     expect(metrics.multiStep).toEqual({ runCount: 1, sequenceMatch: 1, meanExtraCallCount: 1 });
   });
 
+  it("reports the share of tool selections that timed out (and failed open)", () => {
+    const timedOut: DecisionRecord = {
+      ...selection(0.95),
+      decisionStatus: "timedOut",
+      suggestedChoice: null,
+      probability: null,
+    };
+    const metrics = aggregateMetrics([
+      observation({ toolSelectionDecisions: [timedOut, selection(0.95)] }),
+      observation({ toolSelectionDecisions: [timedOut, timedOut] }),
+    ]);
+    expect(metrics.decisions.toolSelectionCount).toBe(4);
+    expect(metrics.decisions.timedOutSelectionShare).toBe(0.75);
+    expect(metrics.decisions.confidentSelectionShare).toBe(0.25);
+  });
+
   it("leaves failed runs out of the scores and counts them", () => {
     const metrics = aggregateMetrics([
       observation({}),
@@ -132,6 +149,7 @@ describe("aggregateMetrics", () => {
     const metrics = aggregateMetrics([]);
     expect(metrics.selectionRecall).toBeNull();
     expect(metrics.decisions.confidentSelectionShare).toBeNull();
+    expect(metrics.decisions.timedOutSelectionShare).toBeNull();
     expect(metrics.costPerStep).toBeNull();
   });
 });

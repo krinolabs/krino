@@ -22,7 +22,8 @@ export const EXIT_CODES = {
 } as const;
 
 export const USAGE = `Usage: krino-bench [--fake] [--pilot | --repeats N] [--setups baseline,per-step,step-zero]
-                   [--tool-counts 10,25,50,100] [--max-spend-usd 20] [--trace-dir <folder>]
+                   [--tool-counts 10,25,50,100] [--max-spend-usd 20] [--decision-timeout-ms 800]
+                   [--trace-dir <folder>]
                    [--out <file>] [--json]
 
   --fake           No API keys, no network: the AI SDK mock model and krino's fake decision
@@ -33,6 +34,9 @@ export const USAGE = `Usage: krino-bench [--fake] [--pilot | --repeats N] [--set
                    step-zero (krino enforce mode). Default: all three.
   --tool-counts    Tools the agent gets, from the bench catalog (default 100).
   --max-spend-usd  Refuses to start when the estimate is higher; stops when spend reaches it.
+  --decision-timeout-ms
+                   How long a tool selection may take before it fails open (default: krino's
+                   800). Keep the default for the main runs; change it only for diagnostics.
   --trace-dir      Where traces go (default: $KRINO_TRACE_DIRECTORY, then ~/.krino/traces/krino-bench).
   --out            The results JSON (default: bench-results-<time>.json in the trace folder).
   --json           Print the results JSON instead of the text comparison.
@@ -97,6 +101,7 @@ async function runParsedCli(
       runSelection: benchOptions.runSelection,
       toolCounts: benchOptions.toolCounts,
       maxSpendInUsd: benchOptions.maxSpendInUsd,
+      decisionTimeoutInMilliseconds: benchOptions.decisionTimeoutInMilliseconds,
       traceDirectory,
     },
     {

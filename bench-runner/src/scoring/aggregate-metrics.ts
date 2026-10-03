@@ -49,6 +49,8 @@ export type BenchMetrics = {
     toolSelectionCount: number;
     /** Selections where every answer was confident (the weakest probability ≥ minimum). */
     confidentSelectionShare: number | null;
+    /** Selections that timed out (`decisionStatus: "timedOut"`) and so failed open: all tools. */
+    timedOutSelectionShare: number | null;
     /** Tool selection and risk gate, estimated by the runtime. */
     decisionCostInUsd: number;
     decisionCostPerRunInUsd: number | null;
@@ -201,6 +203,11 @@ export function aggregateMetrics(observations: ReadonlyArray<RunObservation>): B
     decisions: {
       toolSelectionCount: toolSelectionDecisions.length,
       confidentSelectionShare: shareOf(toolSelectionDecisions.map(isConfident)),
+      timedOutSelectionShare: shareOf(
+        toolSelectionDecisions.map(
+          (decisionRecord) => decisionRecord.decisionStatus === "timedOut",
+        ),
+      ),
       decisionCostInUsd,
       decisionCostPerRunInUsd:
         scoredRuns.length === 0 ? null : decisionCostInUsd / scoredRuns.length,

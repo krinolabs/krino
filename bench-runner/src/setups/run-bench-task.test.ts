@@ -1,6 +1,7 @@
 import { mkdtempSync, readdirSync } from "node:fs";
 import nodePath from "node:path";
 import { BENCH_TASKS, type BenchTask } from "@krinolabs/bench";
+import { KRINO_CONFIG_DEFAULTS } from "@krinolabs/krino";
 import { describe, expect, it } from "vitest";
 import { createFakeAgentEnvironment } from "../environment/agent-environment.js";
 import type { BenchSetupName, PlannedRun } from "../plan/run-plan.js";
@@ -36,8 +37,19 @@ async function runFake(setupName: BenchSetupName, task?: BenchTask) {
     plannedRun: plannedRun(setupName, task),
     traceDirectory,
     agentEnvironment: createFakeAgentEnvironment(),
+    decisionTimeoutInMilliseconds: KRINO_CONFIG_DEFAULTS.decisionTimeoutInMilliseconds,
   });
   return { runObservation, traceDirectory };
+}
+
+/** The fake provider answers after 300 ms; the bench waits 50 ms. */
+async function runWithSlowProvider(setupName: BenchSetupName) {
+  return runBenchTask({
+    plannedRun: plannedRun(setupName),
+    traceDirectory: freshTraceDirectory(),
+    agentEnvironment: createFakeAgentEnvironment({ decisionLatencyInMilliseconds: 300 }),
+    decisionTimeoutInMilliseconds: 50,
+  });
 }
 
 describe("runBenchTask (fake)", () => {
@@ -100,5 +112,27 @@ describe("runBenchTask (fake)", () => {
     }
     expect(runObservation.toolSelectionDecisions[0]?.decisionCostInUsd).toBeGreaterThan(0);
     expect(runObservation.spentInUsd).toBeGreaterThan(0);
+  });
+});
+
+describe("runBenchTask with a slow decision provider", () => {
+  it("step-zero times out and fails open: every tool on every step", async () => {
+    const runObservation = await runWithSlowProvider("step-zero");
+    expect(runObservation.toolSelectionDecisions).toHaveLength(1);
+    expect(runObservation.toolSelectionDecisions[0]?.decisionStatus).toBe("timedOut");
+    for (const observedStep of runObservation.steps) {
+      expect(observedStep.offeredToolNames).toHaveLength(25);
+    }
+  });
+
+  it("per-step times out on every step and fails open", async () => {
+    const runObservation = await runWithSlowProvider("per-step");
+    expect(runObservation.toolSelectionDecisions.length).toBeGreaterThan(0);
+    for (const decisionRecord of runObservation.toolSelectionDecisions) {
+      expect(decisionRecord.decisionStatus).toBe("timedOut");
+    }
+    for (const observedStep of runObservation.steps) {
+      expect(observedStep.offeredToolNames).toHaveLength(25);
+    }
   });
 });

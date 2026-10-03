@@ -51,14 +51,20 @@ function fakeDecisionPrices(): Array<ModelPrice> {
   return jevPrice === null ? [] : [{ ...jevPrice, modelIdentifier: FAKE_DECISION_MODEL_VERSION }];
 }
 
-function fakeProvider(neededToolNames: ReadonlyArray<string>): DecisionProvider {
-  return createFakeDecisionProvider({
-    answerQuestion: answerLikeAGoodProvider(neededToolNames),
-    latencyInMilliseconds: FAKE_DECISION_LATENCY_IN_MILLISECONDS,
-  });
-}
+export type FakeAgentEnvironmentOptions = {
+  /** How long the fake provider takes to answer. Default 20 ms; tests raise it to force timeouts. */
+  decisionLatencyInMilliseconds?: number;
+};
 
-export function createFakeAgentEnvironment(): AgentEnvironment {
+export function createFakeAgentEnvironment(
+  fakeOptions: FakeAgentEnvironmentOptions = {},
+): AgentEnvironment {
+  const fakeProvider = (neededToolNames: ReadonlyArray<string>): DecisionProvider =>
+    createFakeDecisionProvider({
+      answerQuestion: answerLikeAGoodProvider(neededToolNames),
+      latencyInMilliseconds:
+        fakeOptions.decisionLatencyInMilliseconds ?? FAKE_DECISION_LATENCY_IN_MILLISECONDS,
+    });
   return {
     mode: "fake",
     agentModelIdentifier: FAKE_MODEL_IDENTIFIER,
@@ -66,7 +72,9 @@ export function createFakeAgentEnvironment(): AgentEnvironment {
     decisionPriceIdentifier: FAKE_DECISION_MODEL_VERSION,
     createModel: (task) => createFakeAgentModel(task.expectedToolNames),
     createDecisionProvider: (task) => fakeProvider(task.expectedToolNames),
-    // A good per-step router keeps the tools still needed: the expected ones not yet called.
+    // The fake per-step router is DESIGNED TO VARY THE TOOL LIST: it keeps only the expected tools
+    // the agent has not called yet, so the list changes on every step and the cache trap shows.
+    // Its numbers illustrate the mechanism; they are not evidence about a real router.
     createStepDecisionProvider: (task, calledToolNames) => {
       const { matchedCount } = matchExpectedSequence(task.expectedToolNames, calledToolNames);
       return fakeProvider(task.expectedToolNames.slice(matchedCount));

@@ -22,6 +22,10 @@ Run in this order. Each item must pass before release.
       command needs AI_GATEWAY_API_KEY, prints its spend estimate, and refuses to start (exit 4)
       when the estimate is over `--max-spend-usd` (default $20). Check that the output has no
       `SIMULATED` line and `"mode": "live"`. Exit codes: `bench-runner/README.md`.
+      The main runs keep krino's 800 ms decision timeout. Check the "timed out" column
+      (`toolSelectionTimeoutShare`): if it is high, step-zero failed open and its numbers show
+      the timeout, not pruning. Diagnose with an extra run that adds `--decision-timeout-ms 3000`;
+      never publish that run as a main result.
 - [ ] WP-10 pilot (≈ $1.26 estimated):
       `pnpm --filter @krinolabs/bench-runner exec krino-bench --pilot --trace-dir ./bench-traces/pilot`
 - [ ] WP-10 full bench, run 1 (≈ $15 estimated):

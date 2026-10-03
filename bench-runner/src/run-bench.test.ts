@@ -43,6 +43,7 @@ function benchRequest(maxSpendInUsd: number): BenchRequest {
     runSelection: { selectionKind: "pilot" },
     toolCounts: [10],
     maxSpendInUsd,
+    decisionTimeoutInMilliseconds: 800,
     traceDirectory: "unused",
   };
 }

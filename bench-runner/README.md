@@ -28,9 +28,13 @@ included. The risk gate runs in shadow mode in every setup.
   order, but only tools it was sent on that step, and answers early when the next one is missing.
   Its usage follows Anthropic's prompt cache: a step that sends the same tool list as the step
   before reads the cache; a changed list writes it again. krino's fake provider answers like a good
-  router (yes for the needed tools, probability 0.95); for `per-step` it is asked about the
-  expected tools not yet called. Fake decisions are priced as Jev. **Fake output is simulated**: the
-  JSON has `"mode": "fake"`, and the text starts with `SIMULATED — not real measurements.`
+  router (yes for the needed tools, probability 0.95). Fake decisions are priced as Jev. **Fake
+  output is simulated**: the JSON has `"mode": "fake"`, and the text starts with
+  `SIMULATED — not real measurements.`
+- **The fake per-step router is designed to vary the tool list.** It is asked only about the
+  expected tools the agent has not called yet, so the list changes on every step and the cache
+  trap shows. Its numbers illustrate the mechanism; **they are not evidence** about how a real
+  router behaves. Only live runs measure that.
 
 ## Options
 
@@ -42,6 +46,7 @@ included. The risk gate runs in shadow mode in every setup.
 | `--setups` | all three | Comma list. |
 | `--tool-counts` | 100 | Comma list of 10, 25, 50, 100. |
 | `--max-spend-usd` | 20 | The spend guard (below). |
+| `--decision-timeout-ms` | 800 (krino's default) | How long step-zero and the per-step router wait for a tool selection before it fails open (all tools). Keep the default for the main runs; change it only for diagnostic runs. The text output flags a non-default value as DIAGNOSTIC. |
 | `--trace-dir` | `$KRINO_TRACE_DIRECTORY`, then `~/.krino/traces/krino-bench` | Resolved with `resolveTraceDirectory` from `@krinolabs/krino`. |
 | `--out` | `<trace dir>/bench-results-<time>.json` | The results JSON; always written. |
 | `--json` | off | Print the results JSON instead of the text comparison. |
@@ -65,6 +70,10 @@ per difficulty, and per stable task id:
 - **Latency:** agent step p50/p95, decision p50/p95.
 - **Decision cost (estimated by the runtime)** and the **share of selections where every answer was
   confident** (the weakest answer at or above `minimumConfidence`, 0.8).
+- **Timeout rate:** the share of tool selections that timed out (`decisionStatus: "timedOut"`) and
+  so failed open, sending all tools (`toolSelectionTimeoutShare` in `chartRows`, "timed out" in the
+  text). A high rate means the decision timeout decided the result, not the router: recall reads
+  100% and nothing is pruned. Rerun with a larger `--decision-timeout-ms` to diagnose.
 
 Failed runs are counted, not scored. A rate with nothing to measure is `null`, never 0.
 

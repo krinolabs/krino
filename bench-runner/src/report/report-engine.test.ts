@@ -1,6 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import nodePath from "node:path";
 import { BENCH_TASKS } from "@krinolabs/bench";
+import { KRINO_CONFIG_DEFAULTS } from "@krinolabs/krino";
 import { describe, expect, it } from "vitest";
 import { createFakeAgentEnvironment } from "../environment/agent-environment.js";
 import { runBenchTask } from "../setups/run-bench-task.js";
@@ -26,6 +27,7 @@ describe("readSetupReport", () => {
       plannedRun: { runIndex: 0, setupName: "step-zero", toolCount: 25, task, repeatIndex: 0 },
       traceDirectory,
       agentEnvironment: createFakeAgentEnvironment(),
+      decisionTimeoutInMilliseconds: KRINO_CONFIG_DEFAULTS.decisionTimeoutInMilliseconds,
     });
 
     const reportResult = await readSetupReport({

@@ -1,5 +1,6 @@
 import { parseArgs } from "node:util";
 import { TOOL_COUNTS, type ToolCount } from "@krinolabs/example-ai-sdk-cli/agent";
+import { KRINO_CONFIG_DEFAULTS } from "@krinolabs/krino";
 import { BENCH_SETUP_NAMES, type BenchSetupName, type RunSelection } from "../plan/run-plan.js";
 
 export const DEFAULT_REPEAT_COUNT = 2;
@@ -13,6 +14,8 @@ export type BenchOptions = {
   /** Ascending. */
   toolCounts: Array<ToolCount>;
   maxSpendInUsd: number;
+  /** krino's default (800) for the main runs; raise it only for diagnostic runs. */
+  decisionTimeoutInMilliseconds: number;
   isFake: boolean;
   /** `--trace-dir`; `null` means `resolveTraceDirectory("krino-bench")`. */
   traceDirectory: string | null;
@@ -38,6 +41,7 @@ function parseCommandLine(argumentList: Array<string>) {
       pilot: { type: "boolean", default: false },
       "tool-counts": { type: "string" },
       "max-spend-usd": { type: "string" },
+      "decision-timeout-ms": { type: "string" },
       fake: { type: "boolean", default: false },
       "trace-dir": { type: "string" },
       out: { type: "string" },
@@ -120,6 +124,23 @@ function parseMaxSpend(maxSpendText: string | undefined): number {
   return maxSpendInUsd;
 }
 
+function parseDecisionTimeout(timeoutText: string | undefined): number {
+  if (timeoutText === undefined) {
+    return KRINO_CONFIG_DEFAULTS.decisionTimeoutInMilliseconds;
+  }
+  const timeoutInMilliseconds = Number(timeoutText);
+  if (
+    !/^\d+$/.test(timeoutText) ||
+    !Number.isSafeInteger(timeoutInMilliseconds) ||
+    timeoutInMilliseconds < 1
+  ) {
+    throw new BenchUsageError(
+      `--decision-timeout-ms must be a whole number of milliseconds, 1 or more; got "${timeoutText}".`,
+    );
+  }
+  return timeoutInMilliseconds;
+}
+
 export function parseBenchOptions(argumentList: Array<string>): BenchOptions {
   let parsedArguments: ReturnType<typeof parseCommandLine>;
   try {
@@ -135,6 +156,7 @@ export function parseBenchOptions(argumentList: Array<string>): BenchOptions {
     runSelection: parseRunSelection(values.repeats, values.pilot),
     toolCounts: parseToolCounts(values["tool-counts"]),
     maxSpendInUsd: parseMaxSpend(values["max-spend-usd"]),
+    decisionTimeoutInMilliseconds: parseDecisionTimeout(values["decision-timeout-ms"]),
     isFake: values.fake,
     traceDirectory: values["trace-dir"] ?? null,
     outputPath: values.out ?? null,

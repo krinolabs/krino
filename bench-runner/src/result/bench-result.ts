@@ -101,6 +101,11 @@ export type ChartRow = {
   /** Estimated by the runtime: tool selection and risk gate. */
   decisionCostPerRunInUsd: number | null;
   confidentSelectionShare: number | null;
+  /**
+   * Tool selections that timed out and failed open (all tools sent). High values mean the
+   * decision timeout, not the router, decided the result. `null` when no selection was asked.
+   */
+  toolSelectionTimeoutShare: number | null;
   meanCatalogTokenCount: number | null;
 };
 
@@ -129,6 +134,7 @@ const CHART_ROW_FIELD_FLAGS = {
   decisionLatencyP95InMilliseconds: true,
   decisionCostPerRunInUsd: true,
   confidentSelectionShare: true,
+  toolSelectionTimeoutShare: true,
   meanCatalogTokenCount: true,
 } satisfies Record<keyof ChartRow, true>;
 
@@ -155,6 +161,8 @@ export type BenchResult = {
     runSelection: RunSelection;
     toolCounts: Array<number>;
     maxSpendInUsd: number;
+    /** krino's default (800) unless `--decision-timeout-ms` set it for a diagnostic run. */
+    decisionTimeoutInMilliseconds: number;
   };
   models: {
     configuredAgentModelIdentifier: string;

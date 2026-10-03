@@ -89,6 +89,8 @@ export type RunBenchTaskInputs = {
   plannedRun: PlannedRun;
   traceDirectory: string;
   agentEnvironment: AgentEnvironment;
+  /** How long step-zero and the per-step router wait for a tool selection before failing open. */
+  decisionTimeoutInMilliseconds: number;
 };
 
 function teeTraceSink(
@@ -137,6 +139,7 @@ export async function runBenchTask(runInputs: RunBenchTaskInputs): Promise<RunOb
       riskGate: "shadow",
     },
     explorationRate: 0,
+    decisionTimeoutInMilliseconds: runInputs.decisionTimeoutInMilliseconds,
     riskGatePolicy: buildRiskGatePolicy(toolNames),
     decisionProvider: agentEnvironment.createDecisionProvider(task),
     traceSink: teeTraceSink(
@@ -154,6 +157,7 @@ export async function runBenchTask(runInputs: RunBenchTaskInputs): Promise<RunOb
           taskText: task.taskText,
           decisionProviderFor: (calledToolNames) =>
             agentEnvironment.createStepDecisionProvider(task, calledToolNames),
+          decisionTimeoutInMilliseconds: runInputs.decisionTimeoutInMilliseconds,
           priceOverrides: agentEnvironment.priceOverrides,
         })
       : null;

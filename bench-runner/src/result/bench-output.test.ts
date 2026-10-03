@@ -1,5 +1,6 @@
 import { mkdtempSync } from "node:fs";
 import nodePath from "node:path";
+import { KRINO_CONFIG_DEFAULTS } from "@krinolabs/krino";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createFakeAgentEnvironment } from "../environment/agent-environment.js";
 import { runBench } from "../run-bench.js";
@@ -25,6 +26,7 @@ beforeAll(async () => {
       runSelection: { selectionKind: "pilot" },
       toolCounts: [10, 100],
       maxSpendInUsd: 20,
+      decisionTimeoutInMilliseconds: KRINO_CONFIG_DEFAULTS.decisionTimeoutInMilliseconds,
       traceDirectory: freshTraceDirectory(),
     },
     { agentEnvironment: createFakeAgentEnvironment() },
@@ -39,6 +41,10 @@ describe("bench result JSON", () => {
   it("is marked fake", () => {
     expect(benchResult.mode).toBe("fake");
     expect(benchResult.simulatedNotice).toBe(SIMULATED_NOTICE);
+  });
+
+  it("records the decision timeout the bench ran with", () => {
+    expect(benchResult.options.decisionTimeoutInMilliseconds).toBe(800);
   });
 
   it("records model IDs, SDK versions, run date, tool loading and catalog size", () => {
@@ -83,6 +89,8 @@ describe("bench result JSON", () => {
       expect(chartRow.costPerStepInUsd).toBeGreaterThan(0);
       expect(chartRow.cacheReadShare).not.toBeNull();
       expect(chartRow.multiStepCacheReadShare).not.toBeNull();
+      // baseline asks no tool selection; the fake provider answers well inside 800 ms.
+      expect(chartRow.toolSelectionTimeoutShare).toBe(chartRow.setupName === "baseline" ? null : 0);
     }
   });
 
@@ -149,8 +157,43 @@ describe("bench result text", () => {
       "step p50",
       "decision cost",
       "confident",
+      "timed out",
     ]) {
       expect(benchText).toContain(columnName);
     }
   });
+});
+
+describe("bench output with a slow decision provider", () => {
+  it("shows the timeout rate: every selection timed out and failed open", async () => {
+    const outcome = await runBench(
+      {
+        setupNames: ["step-zero"],
+        runSelection: { selectionKind: "pilot" },
+        toolCounts: [10],
+        maxSpendInUsd: 20,
+        decisionTimeoutInMilliseconds: 50,
+        traceDirectory: freshTraceDirectory(),
+      },
+      { agentEnvironment: createFakeAgentEnvironment({ decisionLatencyInMilliseconds: 300 }) },
+    );
+    if (outcome.outcomeKind !== "completed") {
+      throw new Error(`bench did not complete: ${outcome.outcomeKind}`);
+    }
+    const slowResult = outcome.result;
+    expect(slowResult.options.decisionTimeoutInMilliseconds).toBe(50);
+    expect(slowResult.chartRows[0]).toMatchObject({
+      setupName: "step-zero",
+      toolSelectionTimeoutShare: 1,
+      // Fail open: all tools, so recall holds and nothing is pruned.
+      selectionRecall: 1,
+      meanKeptShare: 1,
+    });
+    expect(slowResult.setups[0]?.overall.decisions.timedOutSelectionShare).toBe(1);
+    // "timed out" is the last column of the comparison table.
+    const comparisonLine = renderBenchText(slowResult)
+      .split("\n")
+      .find((line) => line.startsWith("step-zero"));
+    expect(comparisonLine?.endsWith("100.0%")).toBe(true);
+  }, 120_000);
 });

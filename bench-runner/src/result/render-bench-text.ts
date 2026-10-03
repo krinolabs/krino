@@ -1,3 +1,4 @@
+import { KRINO_CONFIG_DEFAULTS } from "@krinolabs/krino";
 import { DIFFICULTY_ORDER } from "../plan/run-plan.js";
 import type { BenchMetrics } from "../scoring/aggregate-metrics.js";
 import type { BenchResult, SetupResult } from "./bench-result.js";
@@ -66,6 +67,7 @@ function comparisonRows(setupResults: ReadonlyArray<SetupResult>): Array<Array<s
     "decision p50",
     "decision cost",
     "confident",
+    "timed out",
   ];
   const dataRows = setupResults.map((setupResult) => {
     const metrics: BenchMetrics = setupResult.overall;
@@ -89,6 +91,7 @@ function comparisonRows(setupResults: ReadonlyArray<SetupResult>): Array<Array<s
       millisecondsText(metrics.decisions.decisionLatencyInMilliseconds.p50),
       usdText(metrics.decisions.decisionCostInUsd),
       percentText(metrics.decisions.confidentSelectionShare),
+      percentText(metrics.decisions.timedOutSelectionShare),
     ];
   });
   return [headerRow, ...dataRows];
@@ -191,6 +194,14 @@ export function renderBenchText(benchResult: BenchResult): string {
     `Runs: ${spend.finishedRunCount} of ${spend.plannedRunCount} · spent ${usdText(spend.spentInUsd)} of ` +
       `${usdText(spend.limitInUsd)} (estimated ${usdText(spend.estimatedInUsd)})` +
       (spend.stopReason === "spendLimit" ? " · STOPPED AT THE SPEND LIMIT" : ""),
+  );
+  const decisionTimeout = benchResult.options.decisionTimeoutInMilliseconds;
+  lines.push(
+    `Decision timeout: ${decisionTimeout} ms` +
+      (decisionTimeout === KRINO_CONFIG_DEFAULTS.decisionTimeoutInMilliseconds
+        ? " (krino default)"
+        : " (DIAGNOSTIC: not krino's default)") +
+      "; a selection that times out fails open (all tools).",
   );
   lines.push(`Traces: ${benchResult.traceDirectory}`);
 

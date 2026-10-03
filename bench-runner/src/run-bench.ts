@@ -42,6 +42,7 @@ export type BenchRequest = {
   runSelection: RunSelection;
   toolCounts: Array<PlannedRun["toolCount"]>;
   maxSpendInUsd: number;
+  decisionTimeoutInMilliseconds: number;
   /** Absolute. Every setup writes here, under its own project name. */
   traceDirectory: string;
 };
@@ -153,6 +154,7 @@ function toChartRow(
     decisionLatencyP95InMilliseconds: metrics.decisions.decisionLatencyInMilliseconds.p95,
     decisionCostPerRunInUsd: metrics.decisions.decisionCostPerRunInUsd,
     confidentSelectionShare: metrics.decisions.confidentSelectionShare,
+    toolSelectionTimeoutShare: metrics.decisions.timedOutSelectionShare,
     meanCatalogTokenCount:
       catalogTokenCounts.length === 0
         ? null
@@ -264,6 +266,7 @@ export async function runBench(
       plannedRun,
       traceDirectory: benchRequest.traceDirectory,
       agentEnvironment,
+      decisionTimeoutInMilliseconds: benchRequest.decisionTimeoutInMilliseconds,
     });
     observations.push(observation);
     spentInUsd += observation.spentInUsd;
@@ -302,6 +305,7 @@ export async function runBench(
       runSelection: benchRequest.runSelection,
       toolCounts: [...benchRequest.toolCounts],
       maxSpendInUsd: benchRequest.maxSpendInUsd,
+      decisionTimeoutInMilliseconds: benchRequest.decisionTimeoutInMilliseconds,
     },
     models: {
       configuredAgentModelIdentifier: agentEnvironment.agentModelIdentifier,
