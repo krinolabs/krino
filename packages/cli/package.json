@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@duckdb/node-api": "1.5.6-r.1",
-    "@krinolabs/krino": "workspace:*",
+    "@krinolabs/krino": "workspace:^",
     "citty": "0.2.2"
   }
 }
