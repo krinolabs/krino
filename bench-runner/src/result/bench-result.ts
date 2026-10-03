@@ -67,6 +67,74 @@ export type RunRecord = {
   decisionCostInUsd: number;
 };
 
+/**
+ * One row per setup and tool count: every number the blog chart plots, flat. Rates are 0..1;
+ * `null` means nothing to measure (never 0).
+ */
+export type ChartRow = {
+  setupName: BenchSetupName;
+  toolCount: number;
+  runCount: number;
+  failedRunCount: number;
+  /** Primary: recall at the step the tool was needed. */
+  selectionRecall: number | null;
+  stepZeroSelectionRecall: number | null;
+  meanKeptShare: number | null;
+  medianKeptShare: number | null;
+  meanKeptCount: number | null;
+  /** multiStep tasks only. */
+  sequenceMatch: number | null;
+  meanExtraCallCount: number | null;
+  /** Main model, per step, cache reads and writes included. */
+  costPerStepInUsd: number | null;
+  meanUncachedInputTokensPerStep: number | null;
+  meanCacheReadTokensPerStep: number | null;
+  meanCacheWriteTokensPerStep: number | null;
+  costPerRunInUsd: number | null;
+  /** From the report engine (`krino report --json`); `null` when it could not be read. */
+  cacheReadShare: number | null;
+  multiStepCacheReadShare: number | null;
+  stepLatencyP50InMilliseconds: number | null;
+  stepLatencyP95InMilliseconds: number | null;
+  decisionLatencyP50InMilliseconds: number | null;
+  decisionLatencyP95InMilliseconds: number | null;
+  /** Estimated by the runtime: tool selection and risk gate. */
+  decisionCostPerRunInUsd: number | null;
+  confidentSelectionShare: number | null;
+  meanCatalogTokenCount: number | null;
+};
+
+const CHART_ROW_FIELD_FLAGS = {
+  setupName: true,
+  toolCount: true,
+  runCount: true,
+  failedRunCount: true,
+  selectionRecall: true,
+  stepZeroSelectionRecall: true,
+  meanKeptShare: true,
+  medianKeptShare: true,
+  meanKeptCount: true,
+  sequenceMatch: true,
+  meanExtraCallCount: true,
+  costPerStepInUsd: true,
+  meanUncachedInputTokensPerStep: true,
+  meanCacheReadTokensPerStep: true,
+  meanCacheWriteTokensPerStep: true,
+  costPerRunInUsd: true,
+  cacheReadShare: true,
+  multiStepCacheReadShare: true,
+  stepLatencyP50InMilliseconds: true,
+  stepLatencyP95InMilliseconds: true,
+  decisionLatencyP50InMilliseconds: true,
+  decisionLatencyP95InMilliseconds: true,
+  decisionCostPerRunInUsd: true,
+  confidentSelectionShare: true,
+  meanCatalogTokenCount: true,
+} satisfies Record<keyof ChartRow, true>;
+
+/** Every `ChartRow` field name (the `satisfies` above keeps the list complete). */
+export const CHART_ROW_FIELDS: ReadonlyArray<string> = Object.keys(CHART_ROW_FIELD_FLAGS);
+
 export type SetupResult = SetupGroupMetrics & {
   /** Cache health of this setup's project, from `krino report --json`. */
   reportEngine: SetupReportResult;
@@ -101,6 +169,8 @@ export type BenchResult = {
   catalog: CatalogSizeRecord;
   spend: SpendRecord;
   traceDirectory: string;
+  /** The comparison, flat, for the chart. */
+  chartRows: Array<ChartRow>;
   setups: Array<SetupResult>;
   runs: Array<RunRecord>;
 };

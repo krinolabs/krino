@@ -19,7 +19,9 @@ import {
   BENCH_RESULT_SCHEMA_VERSION,
   type BenchResult,
   type CatalogSizeRecord,
+  type ChartRow,
   type RunRecord,
+  type SetupResult,
   SIMULATED_NOTICE,
   type SpendRecord,
 } from "./result/bench-result.js";
@@ -116,6 +118,48 @@ function catalogSizeRecord(runPlan: ReadonlyArray<PlannedRun>): CatalogSizeRecor
   };
 }
 
+function toChartRow(
+  setupResult: SetupResult,
+  observations: ReadonlyArray<RunObservation>,
+): ChartRow {
+  const metrics = setupResult.overall;
+  const reportSummary =
+    setupResult.reportEngine.reportKind === "read" ? setupResult.reportEngine.summary : null;
+  const catalogTokenCounts = observations
+    .filter((observation) => observation.projectName === setupResult.projectName)
+    .map((observation) => observation.catalogTokenCount);
+  return {
+    setupName: setupResult.setupName,
+    toolCount: setupResult.toolCount,
+    runCount: metrics.runCount,
+    failedRunCount: metrics.failedRunCount,
+    selectionRecall: metrics.selectionRecall,
+    stepZeroSelectionRecall: metrics.stepZeroSelectionRecall,
+    meanKeptShare: metrics.setSize.meanKeptShare,
+    medianKeptShare: metrics.setSize.medianKeptShare,
+    meanKeptCount: metrics.setSize.meanKeptCount,
+    sequenceMatch: metrics.multiStep.sequenceMatch,
+    meanExtraCallCount: metrics.multiStep.meanExtraCallCount,
+    costPerStepInUsd: metrics.costPerStep?.meanCostInUsd ?? null,
+    meanUncachedInputTokensPerStep: metrics.costPerStep?.meanUncachedInputTokens ?? null,
+    meanCacheReadTokensPerStep: metrics.costPerStep?.meanCacheReadTokens ?? null,
+    meanCacheWriteTokensPerStep: metrics.costPerStep?.meanCacheWriteTokens ?? null,
+    costPerRunInUsd: metrics.costPerRunInUsd,
+    cacheReadShare: reportSummary?.cacheReadShare ?? null,
+    multiStepCacheReadShare: reportSummary?.multiStepCacheReadShare ?? null,
+    stepLatencyP50InMilliseconds: metrics.stepLatencyInMilliseconds.p50,
+    stepLatencyP95InMilliseconds: metrics.stepLatencyInMilliseconds.p95,
+    decisionLatencyP50InMilliseconds: metrics.decisions.decisionLatencyInMilliseconds.p50,
+    decisionLatencyP95InMilliseconds: metrics.decisions.decisionLatencyInMilliseconds.p95,
+    decisionCostPerRunInUsd: metrics.decisions.decisionCostPerRunInUsd,
+    confidentSelectionShare: metrics.decisions.confidentSelectionShare,
+    meanCatalogTokenCount:
+      catalogTokenCounts.length === 0
+        ? null
+        : totalOf(catalogTokenCounts) / catalogTokenCounts.length,
+  };
+}
+
 function toRunRecord(observation: RunObservation): RunRecord {
   return {
     runIndex: observation.runIndex,
@@ -197,6 +241,10 @@ export async function runBench(
   if (!estimateCheck.withinLimit) {
     return { outcomeKind: "refusedOverEstimate", estimatedInUsd, message: estimateCheck.message };
   }
+  dependencies.reportProgress?.(
+    `krino-bench: estimated cost $${estimatedInUsd.toFixed(2)} of --max-spend-usd ` +
+      `$${benchRequest.maxSpendInUsd.toFixed(2)}; ${runPlan.length} runs planned.`,
+  );
 
   const observations: Array<RunObservation> = [];
   let spentInUsd = 0;
@@ -223,7 +271,7 @@ export async function runBench(
   }
 
   const setupGroups = groupObservations(observations);
-  const setups = [];
+  const setups: Array<SetupResult> = [];
   for (const setupGroup of setupGroups) {
     setups.push({
       ...setupGroup,
@@ -274,6 +322,7 @@ export async function runBench(
     catalog: catalogSizeRecord(runPlan),
     spend,
     traceDirectory: benchRequest.traceDirectory,
+    chartRows: setups.map((setupResult) => toChartRow(setupResult, observations)),
     setups,
     runs: observations.map(toRunRecord),
   };

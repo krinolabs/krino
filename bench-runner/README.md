@@ -50,6 +50,50 @@ Runs go one at a time: tool count, then repeat, then task (difficulties interlea
 then the setups back to back, so a run stopped early still compares the setups on the same tasks.
 Progress goes to stderr, one line per run.
 
+## Scoring
+
+As defined in [`bench/README.md`](../bench/README.md#scoring), per setup and tool count, overall,
+per difficulty, and per stable task id:
+
+- **Selection recall (primary):** every expected tool was offered on the step it was needed.
+- **Step-0 recall (secondary):** every expected tool was in the step-0 set.
+- **Set size:** mean and median kept share of the step-0 set, mean kept count.
+- **Sequence match and extra calls:** multiStep tasks only.
+- **Cost per step:** main model, with uncached, cache-read and cache-write tokens.
+- **Cache read share, all runs and multi-step runs:** from krino's report engine (`krino report
+  --json --project <setup project> --since <bench start>`), run from the workspace CLI.
+- **Latency:** agent step p50/p95, decision p50/p95.
+- **Decision cost (estimated by the runtime)** and the **share of selections where every answer was
+  confident** (the weakest answer at or above `minimumConfidence`, 0.8).
+
+Failed runs are counted, not scored. A rate with nothing to measure is `null`, never 0.
+
+## Output
+
+Every run writes:
+
+- **Traces** in the trace folder, one project per setup and tool count:
+  `krino-bench-<setup>-<count>-tools` (so `krino report --project …` reads one setup). `per-step`'s
+  router runs are not agent runs and are not traced; their decisions are in the results.
+- **The results JSON** (`--out`; printed with `--json`), `benchResultSchemaVersion: 1`. Fields are
+  only added within a version. The shape is `BenchResult` in `src/result/bench-result.ts`:
+
+| Field | Holds |
+|---|---|
+| `mode`, `simulatedNotice` | `"fake"` or `"live"`; the notice is `SIMULATED — not real measurements.` in fake mode, else `null`. |
+| `runDate`, `startedAt`, `finishedAt` | UTC. |
+| `models` | Configured agent model, the agent models and decision model versions the traces recorded, the decision provider. |
+| `sdkVersions` | `ai`, `@krinolabs/krino`, `@krinolabs/bench`, `@krinolabs/bench-runner`, `@krinolabs/cli`, Node. |
+| `toolLoading` | Whether an MCP server loaded every tool (`mcpServerLoadedAllTools`: `null` on the AI SDK host, which has no MCP server) and whether tools were deferred (never, here). |
+| `catalog` | Token count of the full catalog and of each tool count's subsets (min, mean, max over tasks). |
+| `spend` | Estimate, limit, spent, planned and finished runs, `stopReason`. |
+| `chartRows` | **The blog chart:** one flat row per setup and tool count with every number above. |
+| `setups` | Per setup and tool count: `overall`, `byDifficulty`, `byTask` (by task id), `reportEngine`. |
+| `runs` | One record per run: task id, setup, tool count, repeat, status, tools sent per step, calls, both recalls, costs. |
+
+The text output is the same comparison: one table per tool count, recall by difficulty, and recall
+per task id. In fake mode its first line is `SIMULATED — not real measurements.`
+
 ## Spend guard
 
 1. **Before starting**, every planned run is estimated: the expected path (one step per expected

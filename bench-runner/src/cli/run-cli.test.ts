@@ -88,6 +88,9 @@ describe("runCli spend guard", () => {
     );
 
     expect(exitCode).toBe(EXIT_CODES.stoppedAtSpendLimit);
+    expect(captured.error).toMatch(
+      /estimated cost \$\d+\.\d{2} of --max-spend-usd \$1\.00; 10 runs planned/,
+    );
     expect(captured.error).toContain(
       "krino-bench: stopped at the spend limit: spent $1.00 of --max-spend-usd $1.00 after 2 of 10 runs.",
     );
