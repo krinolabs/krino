@@ -142,6 +142,7 @@ function toChartRow(
     sequenceMatch: metrics.multiStep.sequenceMatch,
     meanExtraCallCount: metrics.multiStep.meanExtraCallCount,
     costPerStepInUsd: metrics.costPerStep?.meanCostInUsd ?? null,
+    totalCostPerStepInUsd: metrics.costPerStep?.meanTotalCostInUsd ?? null,
     meanUncachedInputTokensPerStep: metrics.costPerStep?.meanUncachedInputTokens ?? null,
     meanCacheReadTokensPerStep: metrics.costPerStep?.meanCacheReadTokens ?? null,
     meanCacheWriteTokensPerStep: metrics.costPerStep?.meanCacheWriteTokens ?? null,

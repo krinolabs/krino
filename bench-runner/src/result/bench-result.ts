@@ -85,8 +85,13 @@ export type ChartRow = {
   /** multiStep tasks only. */
   sequenceMatch: number | null;
   meanExtraCallCount: number | null;
-  /** Main model, per step, cache reads and writes included. */
+  /** Main model only, per step, cache reads and writes included (from the traced steps). */
   costPerStepInUsd: number | null;
+  /**
+   * Main model plus every decision (estimated), per step. For per-step this includes its
+   * router's decisions, which are not in the traces. Compare setups on this one.
+   */
+  totalCostPerStepInUsd: number | null;
   meanUncachedInputTokensPerStep: number | null;
   meanCacheReadTokensPerStep: number | null;
   meanCacheWriteTokensPerStep: number | null;
@@ -122,6 +127,7 @@ const CHART_ROW_FIELD_FLAGS = {
   sequenceMatch: true,
   meanExtraCallCount: true,
   costPerStepInUsd: true,
+  totalCostPerStepInUsd: true,
   meanUncachedInputTokensPerStep: true,
   meanCacheReadTokensPerStep: true,
   meanCacheWriteTokensPerStep: true,

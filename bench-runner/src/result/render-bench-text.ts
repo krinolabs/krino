@@ -60,12 +60,13 @@ function comparisonRows(setupResults: ReadonlyArray<SetupResult>): Array<Array<s
     "kept (mean/median)",
     "seq match",
     "extra calls",
-    "cost/step",
+    "model $/step",
+    "total $/step (model + decisions)",
     "tokens/step uncached·read·write",
     "cache read (all/multi)",
     "step p50",
     "decision p50",
-    "decision cost",
+    "decision cost (est.)",
     "confident",
     "timed out",
   ];
@@ -83,6 +84,7 @@ function comparisonRows(setupResults: ReadonlyArray<SetupResult>): Array<Array<s
       percentText(metrics.multiStep.sequenceMatch),
       numberText(metrics.multiStep.meanExtraCallCount, 2),
       usdText(costPerStep?.meanCostInUsd ?? null),
+      usdText(costPerStep?.meanTotalCostInUsd ?? null),
       costPerStep === null
         ? "—"
         : `${tokenText(costPerStep.meanUncachedInputTokens)}·${tokenText(costPerStep.meanCacheReadTokens)}·${tokenText(costPerStep.meanCacheWriteTokens)}`,
@@ -203,6 +205,12 @@ export function renderBenchText(benchResult: BenchResult): string {
         : " (DIAGNOSTIC: not krino's default)") +
       "; a selection that times out fails open (all tools).",
   );
+  if (benchResult.options.setupNames.includes("per-step")) {
+    lines.push(
+      "per-step: the activeTools warning is expected (changing the tool list after step 0 is the cache trap being measured).",
+      "per-step: its router's decisions are not traced; their estimated cost is in decision cost and total $/step.",
+    );
+  }
   lines.push(`Traces: ${benchResult.traceDirectory}`);
 
   const toolCounts = [...new Set(benchResult.setups.map((setupResult) => setupResult.toolCount))];

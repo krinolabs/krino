@@ -34,9 +34,15 @@ export type BenchMetrics = {
     sequenceMatch: number | null;
     meanExtraCallCount: number | null;
   };
-  /** Main-model cost per step, with the cache split; `null` without steps. */
+  /** Cost per step, with the cache split; `null` without steps. */
   costPerStep: {
+    /** Main model only, cache reads and writes included. */
     meanCostInUsd: number;
+    /**
+     * Main model plus every decision (estimated), over the agent's steps. For per-step this
+     * includes its router's decisions, which are not in the traces.
+     */
+    meanTotalCostInUsd: number;
     meanUncachedInputTokens: number;
     meanCacheReadTokens: number;
     meanCacheWriteTokens: number;
@@ -153,9 +159,9 @@ export function aggregateMetrics(observations: ReadonlyArray<RunObservation>): B
   const tokenUsages = allSteps.flatMap((observedStep) =>
     observedStep.tokenUsage === null ? [] : [observedStep.tokenUsage],
   );
-  const meanCostPerStep = meanOf(
-    numbersOnly(allSteps.map((observedStep) => observedStep.costInUsd)),
-  );
+  const stepCosts = numbersOnly(allSteps.map((observedStep) => observedStep.costInUsd));
+  const meanCostPerStep = meanOf(stepCosts);
+  const stepCostInUsd = stepCosts.reduce((total, cost) => total + cost, 0);
 
   return {
     runCount: observations.length,
@@ -191,6 +197,7 @@ export function aggregateMetrics(observations: ReadonlyArray<RunObservation>): B
         ? null
         : {
             meanCostInUsd: meanCostPerStep,
+            meanTotalCostInUsd: (stepCostInUsd + decisionCostInUsd) / allSteps.length,
             meanUncachedInputTokens: meanOf(tokenUsages.map((usage) => usage.inputTokens)) ?? 0,
             meanCacheReadTokens: meanOf(tokenUsages.map((usage) => usage.cacheReadTokens)) ?? 0,
             meanCacheWriteTokens: meanOf(tokenUsages.map((usage) => usage.cacheWriteTokens)) ?? 0,

@@ -5,6 +5,7 @@ import { KRINO_CONFIG_DEFAULTS } from "@krinolabs/krino";
 import { describe, expect, it } from "vitest";
 import { createFakeAgentEnvironment } from "../environment/agent-environment.js";
 import type { BenchSetupName, PlannedRun } from "../plan/run-plan.js";
+import { aggregateMetrics } from "../scoring/aggregate-metrics.js";
 import { scoreRecallAtNeededStep, scoreStepZeroRecall } from "../scoring/scoring.js";
 import { projectNameFor, runBenchTask } from "./run-bench-task.js";
 
@@ -134,5 +135,41 @@ describe("runBenchTask with a slow decision provider", () => {
     for (const observedStep of runObservation.steps) {
       expect(observedStep.offeredToolNames).toHaveLength(25);
     }
+  });
+});
+
+describe("per-step cost includes the router", () => {
+  it("counts one router decision per step in the decision cost and the total cost per step", async () => {
+    const { runObservation } = await runFake("per-step");
+    const stepCount = runObservation.steps.length;
+    // The router's decisions are not in the traces; the runner takes them from the router.
+    expect(runObservation.toolSelectionDecisions).toHaveLength(stepCount);
+    const routerCostInUsd = runObservation.toolSelectionDecisions.reduce(
+      (total, decisionRecord) => total + (decisionRecord.decisionCostInUsd ?? 0),
+      0,
+    );
+    for (const decisionRecord of runObservation.toolSelectionDecisions) {
+      expect(decisionRecord.decisionCostInUsd).toBeGreaterThan(0);
+    }
+    const riskGateCostInUsd = runObservation.riskGateDecisions.reduce(
+      (total, decisionRecord) => total + (decisionRecord.decisionCostInUsd ?? 0),
+      0,
+    );
+    expect(runObservation.decisionCostInUsd).toBeCloseTo(routerCostInUsd + riskGateCostInUsd, 12);
+
+    const metrics = aggregateMetrics([runObservation]);
+    expect(metrics.decisions.decisionCostInUsd).toBeCloseTo(runObservation.decisionCostInUsd, 12);
+    // Model-only cost per step leaves the router out; the total includes it.
+    expect(metrics.costPerStep?.meanCostInUsd).toBeCloseTo(
+      runObservation.agentCostInUsd / stepCount,
+      12,
+    );
+    expect(metrics.costPerStep?.meanTotalCostInUsd).toBeCloseTo(
+      (runObservation.agentCostInUsd + runObservation.decisionCostInUsd) / stepCount,
+      12,
+    );
+    expect(
+      (metrics.costPerStep?.meanTotalCostInUsd ?? 0) - (metrics.costPerStep?.meanCostInUsd ?? 0),
+    ).toBeGreaterThanOrEqual(routerCostInUsd / stepCount - 1e-12);
   });
 });

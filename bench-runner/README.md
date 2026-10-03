@@ -64,7 +64,13 @@ per difficulty, and per stable task id:
 - **Step-0 recall (secondary):** every expected tool was in the step-0 set.
 - **Set size:** mean and median kept share of the step-0 set, mean kept count.
 - **Sequence match and extra calls:** multiStep tasks only.
-- **Cost per step:** main model, with uncached, cache-read and cache-write tokens.
+- **Cost per step**, two columns:
+  - `model $/step` (`costPerStepInUsd`): the main model only, with uncached, cache-read and
+    cache-write tokens, from the traced agent steps.
+  - `total $/step (model + decisions)` (`totalCostPerStepInUsd`): the main model plus every
+    decision's estimated cost, over the agent's steps. **Compare setups on this one.** For
+    `per-step` it includes the router's decisions (one per step). Those are not in the traces,
+    so the runner takes their costs from the router itself.
 - **Cache read share, all runs and multi-step runs:** from krino's report engine (`krino report
   --json --project <setup project> --since <bench start>`), run from the workspace CLI.
 - **Latency:** agent step p50/p95, decision p50/p95.
@@ -76,6 +82,28 @@ per difficulty, and per stable task id:
   100% and nothing is pruned. Rerun with a larger `--decision-timeout-ms` to diagnose.
 
 Failed runs are counted, not scored. A rate with nothing to measure is `null`, never 0.
+
+### When primary and step-0 recall differ
+
+For step-zero the tool list never changes, so the two recalls agree unless the agent stops before
+a tool was needed. Take a multiStep task that expects `get_order_details` → `create_refund`:
+
+| Step | Sent | Called | Primary (needed step) | Step-0 |
+|---|---|---|---|---|
+| 0 | `get_order_details`, `create_refund` | `get_order_details` | `get_order_details` ✓ | both in the step-0 set ✓ |
+| 1 | `get_order_details`, `create_refund` | — (answers, run ends) | `create_refund` is needed on step 1: sent ✓ | |
+
+Both pass: the agent stopped early, but `create_refund` was offered on the step it was needed. Now
+let the agent answer on step 0 instead of calling `get_order_details`. The run has one step. `get_order_details`
+is needed on step 0 and was sent (✓), but `create_refund` is needed on step 1, which never
+happened: primary recall **fails**, while step-0 recall still **passes**. So a live agent that
+gives up early lowers primary recall, but never step-0 recall. For per-step the two differ in
+general, because its list changes after step 0.
+
+### Expected warning
+
+`per-step` prints krino's `activeTools changed after step 0; this breaks the prompt cache.` once
+per process, and the text header says so. That is the trap being measured, not a fault.
 
 ## Output
 

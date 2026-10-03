@@ -87,6 +87,8 @@ describe("bench result JSON", () => {
       }
       expect(chartRow.selectionRecall).toBe(1);
       expect(chartRow.costPerStepInUsd).toBeGreaterThan(0);
+      // Total = model + decisions (per-step: its router's decisions included).
+      expect(chartRow.totalCostPerStepInUsd ?? 0).toBeGreaterThan(chartRow.costPerStepInUsd ?? 0);
       expect(chartRow.cacheReadShare).not.toBeNull();
       expect(chartRow.multiStepCacheReadShare).not.toBeNull();
       // baseline asks no tool selection; the fake provider answers well inside 800 ms.
@@ -128,6 +130,18 @@ describe("bench result text", () => {
     expect(renderBenchText(benchResult).split("\n")[0]).toBe(SIMULATED_NOTICE);
   });
 
+  it("says in the header that per-step's activeTools warning is expected", () => {
+    const headerLines = renderBenchText(benchResult).split("\n").slice(0, 12);
+    expect(headerLines).toContain(
+      "per-step: the activeTools warning is expected (changing the tool list after step 0 is the cache trap being measured).",
+    );
+    const withoutPerStep = renderBenchText({
+      ...benchResult,
+      options: { ...benchResult.options, setupNames: ["baseline", "step-zero"] },
+    });
+    expect(withoutPerStep).not.toContain("activeTools warning");
+  });
+
   it("does not show the notice for live results", () => {
     const liveText = renderBenchText({ ...benchResult, mode: "live", simulatedNotice: null });
     expect(liveText).not.toContain("SIMULATED");
@@ -152,7 +166,8 @@ describe("bench result text", () => {
       "kept",
       "seq match",
       "extra calls",
-      "cost/step",
+      "model $/step",
+      "total $/step (model + decisions)",
       "cache read (all/multi)",
       "step p50",
       "decision cost",
