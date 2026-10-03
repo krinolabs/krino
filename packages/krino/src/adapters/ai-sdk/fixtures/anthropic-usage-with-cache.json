@@ -1,0 +1,22 @@
+{
+  "description": "One Anthropic step as ai 7.0.126 reports it: provider usage (LanguageModelV4Usage) where inputTokens.total includes cache reads and cache writes, and inputTokens.noCache is Anthropic's input_tokens. Token counts only, no prompt content.",
+  "usage": {
+    "inputTokens": { "total": 1450, "noCache": 50, "cacheRead": 1200, "cacheWrite": 200 },
+    "outputTokens": { "total": 80, "text": 80, "reasoning": 0 },
+    "raw": {
+      "input_tokens": 50,
+      "cache_read_input_tokens": 1200,
+      "cache_creation_input_tokens": 200,
+      "output_tokens": 80
+    }
+  },
+  "providerMetadata": {
+    "anthropic": { "cacheCreationInputTokens": 200 }
+  },
+  "expectedTokenUsage": {
+    "inputTokens": 50,
+    "outputTokens": 80,
+    "cacheReadTokens": 1200,
+    "cacheWriteTokens": 200
+  }
+}
