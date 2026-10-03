@@ -3,6 +3,9 @@
 Run in this order. Each item must pass before release.
 
 - [ ] Set spend limits on both keys.
+- [ ] WP-14: run e2e with E2E_ONLINE=1 (needs network, no keys):
+      `E2E_ONLINE=1 pnpm turbo run test --filter=@krinolabs/e2e`. It installs the packed tarballs
+      with third-party packages from the registry at their published ranges (`e2e/README.md`).
 - [ ] WP-03: `smoke:jev` with KRINO_RECORD_FIXTURES=1 → billing table → finish ADR-018.
 - [ ] WP-03: confirm Jev's real output price; update the price table.
 - [ ] WP-06: live AI SDK run → report + providerMetadata shape.

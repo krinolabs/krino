@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.declarations.json",
+  // Only the deliberate type error: the e2e test expects exactly one failing diagnostic.
+  "include": ["type-error-fixture"]
+}

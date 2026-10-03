@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Checks the installed .d.ts files too. ai 7.0.126 and its @ai-sdk/* packages report errors
+    // of their own under this strict config (DOM types, exactOptionalPropertyTypes), so the e2e
+    // test only fails on diagnostics in @krinolabs files.
+    "skipLibCheck": false
+  }
+}
