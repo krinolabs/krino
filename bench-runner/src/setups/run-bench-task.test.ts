@@ -1,0 +1,104 @@
+import { mkdtempSync, readdirSync } from "node:fs";
+import nodePath from "node:path";
+import { BENCH_TASKS, type BenchTask } from "@krinolabs/bench";
+import { describe, expect, it } from "vitest";
+import { createFakeAgentEnvironment } from "../environment/agent-environment.js";
+import type { BenchSetupName, PlannedRun } from "../plan/run-plan.js";
+import { scoreRecallAtNeededStep, scoreStepZeroRecall } from "../scoring/scoring.js";
+import { projectNameFor, runBenchTask } from "./run-bench-task.js";
+
+function freshTraceDirectory(): string {
+  const isolatedDirectory = process.env.KRINO_TRACE_DIRECTORY;
+  if (isolatedDirectory === undefined) {
+    throw new Error("trace-isolation.ts must set KRINO_TRACE_DIRECTORY");
+  }
+  return mkdtempSync(nodePath.join(isolatedDirectory, "run-"));
+}
+
+function benchTask(taskIdentifier: string): BenchTask {
+  const task = BENCH_TASKS.find((candidate) => candidate.taskIdentifier === taskIdentifier);
+  if (task === undefined) {
+    throw new Error(`no ${taskIdentifier}`);
+  }
+  return task;
+}
+
+// task-059: get_request_trace, then search_application_logs.
+const TWO_TOOL_TASK = benchTask("task-059");
+
+function plannedRun(setupName: BenchSetupName, task: BenchTask = TWO_TOOL_TASK): PlannedRun {
+  return { runIndex: 0, setupName, toolCount: 25, task, repeatIndex: 0 };
+}
+
+async function runFake(setupName: BenchSetupName, task?: BenchTask) {
+  const traceDirectory = freshTraceDirectory();
+  const runObservation = await runBenchTask({
+    plannedRun: plannedRun(setupName, task),
+    traceDirectory,
+    agentEnvironment: createFakeAgentEnvironment(),
+  });
+  return { runObservation, traceDirectory };
+}
+
+describe("runBenchTask (fake)", () => {
+  it("baseline sends every tool on every step and asks no tool selection", async () => {
+    const { runObservation, traceDirectory } = await runFake("baseline");
+    expect(runObservation.runStatus).toBe("completed");
+    expect(runObservation.steps).toHaveLength(3);
+    for (const observedStep of runObservation.steps) {
+      expect(observedStep.offeredToolNames).toHaveLength(25);
+    }
+    expect(runObservation.toolSelectionDecisions).toEqual([]);
+    expect(runObservation.availableToolCount).toBe(25);
+    expect(runObservation.catalogTokenCount).toBeGreaterThan(0);
+    expect(readdirSync(traceDirectory).length).toBeGreaterThan(0);
+    expect(runObservation.projectName).toBe(projectNameFor("baseline", 25));
+  });
+
+  it("step-zero sends the selected tools on step 0 and never changes them", async () => {
+    const { runObservation } = await runFake("step-zero");
+    const offeredLists = runObservation.steps.map((observedStep) =>
+      [...observedStep.offeredToolNames].sort(),
+    );
+    expect(offeredLists[0]).toEqual(["get_request_trace", "search_application_logs"]);
+    expect(new Set(offeredLists.map((toolNames) => toolNames.join(","))).size).toBe(1);
+    expect(runObservation.toolSelectionDecisions).toHaveLength(1);
+    expect(runObservation.toolSelectionDecisions[0]).toMatchObject({
+      decisionMode: "enforce",
+      decisionStatus: "answered",
+    });
+    const expectedToolNames = TWO_TOOL_TASK.expectedToolNames;
+    expect(scoreRecallAtNeededStep(expectedToolNames, runObservation.steps)).toBe(true);
+    expect(scoreStepZeroRecall(expectedToolNames, runObservation.steps)).toBe(true);
+    // The tool list holds, so every step after step 0 reads the cache.
+    for (const observedStep of runObservation.steps.slice(1)) {
+      expect(observedStep.tokenUsage?.cacheWriteTokens).toBe(0);
+      expect(observedStep.tokenUsage?.cacheReadTokens).toBeGreaterThan(0);
+    }
+  });
+
+  it("per-step asks on every step, changes the list, and writes the cache again", async () => {
+    const { runObservation } = await runFake("per-step");
+    expect(runObservation.steps.length).toBeGreaterThanOrEqual(2);
+    expect(runObservation.toolSelectionDecisions).toHaveLength(runObservation.steps.length);
+    expect([...(runObservation.steps[0]?.offeredToolNames ?? [])].sort()).toEqual([
+      "get_request_trace",
+      "search_application_logs",
+    ]);
+    expect(runObservation.steps[1]?.offeredToolNames).toEqual(["search_application_logs"]);
+    expect(runObservation.steps[1]?.tokenUsage?.cacheWriteTokens).toBeGreaterThan(0);
+    expect(scoreRecallAtNeededStep(TWO_TOOL_TASK.expectedToolNames, runObservation.steps)).toBe(
+      true,
+    );
+  });
+
+  it("records the agent model and prices every step and decision", async () => {
+    const { runObservation } = await runFake("step-zero");
+    expect(runObservation.agentModelIdentifiers).toEqual(["claude-haiku-4-5"]);
+    for (const observedStep of runObservation.steps) {
+      expect(observedStep.costInUsd).toBeGreaterThan(0);
+    }
+    expect(runObservation.toolSelectionDecisions[0]?.decisionCostInUsd).toBeGreaterThan(0);
+    expect(runObservation.spentInUsd).toBeGreaterThan(0);
+  });
+});
