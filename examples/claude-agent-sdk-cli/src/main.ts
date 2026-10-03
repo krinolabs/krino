@@ -2,13 +2,20 @@ import nodePath from "node:path";
 import { resolveTraceDirectory } from "@krinolabs/krino";
 import { type CliOptions, CliUsageError, parseCliOptions } from "./cli-options.js";
 import { findMissingKeyVariables, runLiveLogTriage } from "./live-run.js";
-import { LIVE_MODEL_IDENTIFIER, LOG_TRIAGE_TASK_TEXT, PROJECT_NAME } from "./log-triage.js";
+import { LIVE_MODEL_IDENTIFIER, PROJECT_NAME } from "./log-triage.js";
+import { DEFAULT_TASK_IDENTIFIER, EXAMPLE_TASKS, resolveExampleTask } from "./log-triage-tasks.js";
 import { runSimulatedLogTriage, SIMULATED_LABEL } from "./simulated-run.js";
 
-const USAGE = `Usage: pnpm start [--fake] [--tools 10|25|50|100] [--trace-dir <folder>]
+const TASK_LINES = EXAMPLE_TASKS.map(
+  (exampleTask) => `                  ${exampleTask.taskIdentifier}: ${exampleTask.summary}`,
+).join("\n");
+
+const USAGE = `Usage: pnpm start [--fake] [--task <id>] [--tools 10|25|50|100] [--trace-dir <folder>]
 
   --fake        No API keys, no network: a simulated Claude Agent SDK message stream and
                 krino's fake decision provider.
+  --task        Which bench task to run (default ${DEFAULT_TASK_IDENTIFIER}):
+${TASK_LINES}
   --tools       How many bench catalog tools the agent gets (default 100).
   --trace-dir   Where krino writes traces (default: $KRINO_TRACE_DIRECTORY, then ~/.krino).
 
@@ -49,11 +56,12 @@ async function runCli(cliOptions: CliOptions): Promise<number> {
   } else {
     writeLine(`Mode: live (${LIVE_MODEL_IDENTIFIER} via the Claude Agent SDK; Jev decisions)`);
   }
-  writeLine(`Task: ${LOG_TRIAGE_TASK_TEXT}`);
+  const task = resolveExampleTask(cliOptions.taskIdentifier);
+  writeLine(`Task ${task.taskIdentifier}: ${task.taskText}`);
   writeLine(`Tools offered: ${cliOptions.toolCount}`);
   writeLine();
 
-  const runOptions = { traceDirectory, toolCount: cliOptions.toolCount };
+  const runOptions = { traceDirectory, toolCount: cliOptions.toolCount, task };
   const triageResult = cliOptions.isFake
     ? await runSimulatedLogTriage(runOptions)
     : await runLiveLogTriage(runOptions);

@@ -1,6 +1,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createJevAiGatewayProvider } from "@krinolabs/krino/providers/jev";
-import { LOG_TRIAGE_TASK_TEXT, type ToolCount } from "./log-triage.js";
+import type { ToolCount } from "./log-triage.js";
+import type { ResolvedExampleTask } from "./log-triage-tasks.js";
 import { type LogTriageResult, runLogTriage } from "./run-log-triage.js";
 
 // Live: the Claude Agent SDK runs the agent (ANTHROPIC_API_KEY); the Jev decision provider goes
@@ -21,13 +22,19 @@ export function findMissingKeyVariables(
   );
 }
 
-export type LiveRunOptions = { traceDirectory: string; toolCount: ToolCount };
+export type LiveRunOptions = {
+  traceDirectory: string;
+  toolCount: ToolCount;
+  task: ResolvedExampleTask;
+};
 
 export function runLiveLogTriage(liveRunOptions: LiveRunOptions): Promise<LogTriageResult> {
   return runLogTriage({
-    startAgent: (queryOptions) => query({ prompt: LOG_TRIAGE_TASK_TEXT, options: queryOptions }),
+    startAgent: (queryOptions) =>
+      query({ prompt: liveRunOptions.task.taskText, options: queryOptions }),
     decisionProvider: createJevAiGatewayProvider(),
     traceDirectory: liveRunOptions.traceDirectory,
     toolCount: liveRunOptions.toolCount,
+    task: liveRunOptions.task,
   });
 }

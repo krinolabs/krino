@@ -14,41 +14,18 @@ import {
   type FakeAnswerFunction,
   findModelPrice,
 } from "@krinolabs/krino";
-import {
-  LIVE_MODEL_IDENTIFIER,
-  LOG_TRIAGE_TOOL_NAMES,
-  selectLogTriageToolNames,
-  type ToolCount,
-} from "./log-triage.js";
+import { LIVE_MODEL_IDENTIFIER, selectLogTriageToolNames, type ToolCount } from "./log-triage.js";
+import type { ResolvedExampleTask } from "./log-triage-tasks.js";
 import { type LogTriageResult, runLogTriage, type StartAgent } from "./run-log-triage.js";
 
-// --fake: a scripted Claude Agent SDK message stream stands in for `query()`, the same approach
-// as krino's adapter tests. It runs krino's PreToolUse hook before each tool call, as the SDK
+// --fake: a scripted Claude Agent SDK message stream plays the task's tool calls in place of
+// `query()`, the same approach as krino's adapter tests. It runs krino's PreToolUse hook before each tool call, as the SDK
 // would, and the bench executors for the results. Nothing calls the SDK, the Claude Code
 // process or any API. Everything it prints is labelled "simulated".
 
 export const SIMULATED_LABEL = "[simulated]";
 
 const SESSION_ID = "simulated-session";
-
-type ScriptedToolCall = { toolName: string; toolInput: Record<string, string> };
-
-const SCRIPTED_TOOL_CALLS: ReadonlyArray<ScriptedToolCall> = [
-  { toolName: "get_request_trace", toolInput: { requestId: "REQ-7f3a" } },
-  {
-    toolName: "search_application_logs",
-    toolInput: {
-      serviceName: "payment-service",
-      query: "REQ-7f3a",
-      startTime: "2026-10-01T10:00:00Z",
-      endTime: "2026-10-01T10:15:00Z",
-    },
-  },
-];
-
-const SCRIPTED_ANSWER =
-  "REQ-7f3a failed in payment-service: the card was declined (do_not_honor), and " +
-  "checkout-service passed the error on. No service is down; ask the customer to try another card.";
 
 /** Tokens for the system prompt and task, on top of the tool definitions. */
 const PROMPT_TOKEN_COUNT = 120;
@@ -60,8 +37,8 @@ const OUTPUT_TOKENS_FOR_ANSWER = 60;
  * Run usage like a cached Anthropic run: turn 0 writes the tools and system prompt to the cache,
  * later turns read them, and the uncached part grows with each tool result.
  */
-function simulatedModelUsage(toolNames: ReadonlyArray<string>): ModelUsage {
-  const turnCount = SCRIPTED_TOOL_CALLS.length + 1;
+function simulatedModelUsage(toolNames: ReadonlyArray<string>, toolCallCount: number): ModelUsage {
+  const turnCount = toolCallCount + 1;
   const toolDefinitions = toolNames.flatMap((toolName) => findMockTool(toolName) ?? []);
   const cachedPrefixTokenCount = estimateCatalogSize(toolDefinitions).estimatedTokenCount;
   let uncachedTokenCount = 0;
@@ -70,8 +47,7 @@ function simulatedModelUsage(toolNames: ReadonlyArray<string>): ModelUsage {
   }
   const tokenUsage = {
     inputTokens: uncachedTokenCount,
-    outputTokens:
-      SCRIPTED_TOOL_CALLS.length * OUTPUT_TOKENS_PER_TOOL_TURN + OUTPUT_TOKENS_FOR_ANSWER,
+    outputTokens: toolCallCount * OUTPUT_TOKENS_PER_TOOL_TURN + OUTPUT_TOKENS_FOR_ANSWER,
     cacheReadTokens: cachedPrefixTokenCount * (turnCount - 1),
     cacheWriteTokens: cachedPrefixTokenCount,
   };
@@ -125,13 +101,17 @@ function toolResultMessage(toolUseId: string, resultText: string, isError: boole
   });
 }
 
-function resultMessage(modelIdentifier: string, modelUsage: ModelUsage): SDKMessage {
+function resultMessage(
+  task: ResolvedExampleTask,
+  modelIdentifier: string,
+  modelUsage: ModelUsage,
+): SDKMessage {
   return simulatedMessage({
     type: "result",
     subtype: "success",
     is_error: false,
-    result: SCRIPTED_ANSWER,
-    num_turns: SCRIPTED_TOOL_CALLS.length + 1,
+    result: task.scriptedAnswer,
+    num_turns: task.scriptedToolCalls.length + 1,
     total_cost_usd: modelUsage.costUSD,
     modelUsage: { [modelIdentifier]: modelUsage },
     duration_ms: 0,
@@ -170,13 +150,13 @@ async function runPreToolUseHooks(
   return isAllowed;
 }
 
-/** A stand-in for `query()`: calls the two log tools, then answers. */
-export function createSimulatedAgent(toolCount: ToolCount): StartAgent {
-  const toolNames = selectLogTriageToolNames(toolCount);
+/** A stand-in for `query()`: makes the task's scripted tool calls, then answers. */
+export function createSimulatedAgent(task: ResolvedExampleTask, toolCount: ToolCount): StartAgent {
+  const toolNames = selectLogTriageToolNames(toolCount, task.expectedToolNames);
   return async function* simulatedAgent(queryOptions) {
     const modelIdentifier = queryOptions.model ?? LIVE_MODEL_IDENTIFIER;
     yield systemInitMessage(modelIdentifier, toolNames.map(toClaudeAgentSdkToolName));
-    for (const [callIndex, scriptedToolCall] of SCRIPTED_TOOL_CALLS.entries()) {
+    for (const [callIndex, scriptedToolCall] of task.scriptedToolCalls.entries()) {
       const agentToolName = toClaudeAgentSdkToolName(scriptedToolCall.toolName);
       const toolUseId = `simulated-tool-use-${callIndex}`;
       yield assistantMessage([
@@ -199,40 +179,53 @@ export function createSimulatedAgent(toolCount: ToolCount): StartAgent {
         .join("\n");
       yield toolResultMessage(toolUseId, resultText, toolResult.isError === true);
     }
-    yield assistantMessage([{ type: "text", text: SCRIPTED_ANSWER }]);
-    yield resultMessage(modelIdentifier, simulatedModelUsage(toolNames));
+    yield assistantMessage([{ type: "text", text: task.scriptedAnswer }]);
+    yield resultMessage(
+      task,
+      modelIdentifier,
+      simulatedModelUsage(toolNames, task.scriptedToolCalls.length),
+    );
   };
 }
 
 /**
- * Answers tool selection like a good decision provider: the task needs the two log tools and
+ * Answers tool selection like a good decision provider: the task needs its expected tools and
  * nothing else. Risk questions (asked only for write tools; read-only tools are always allowed)
- * fall through to the fake's conservative answer, which suggests askHuman.
+ * fall through to the fake's conservative answer, "not sure", which suggests askHuman.
  */
-export const answerLikeAGoodProvider: FakeAnswerFunction = (decisionQuestion) => {
-  if (decisionQuestion.decisionKind !== "toolSelection") {
-    return null;
-  }
-  const isNeeded = LOG_TRIAGE_TOOL_NAMES.some((toolName) =>
-    decisionQuestion.questionText.startsWith(
-      `Does the agent need the tool "${toClaudeAgentSdkToolName(toolName)}"`,
-    ),
-  );
-  return { choice: isNeeded ? "yes" : "no", probability: 0.95 };
-};
+export function answerLikeAGoodProvider(
+  neededToolNames: ReadonlyArray<string>,
+): FakeAnswerFunction {
+  return (decisionQuestion) => {
+    if (decisionQuestion.decisionKind !== "toolSelection") {
+      return null;
+    }
+    const isNeeded = neededToolNames.some((toolName) =>
+      decisionQuestion.questionText.startsWith(
+        `Does the agent need the tool "${toClaudeAgentSdkToolName(toolName)}"`,
+      ),
+    );
+    return { choice: isNeeded ? "yes" : "no", probability: 0.95 };
+  };
+}
 
-export type SimulatedRunOptions = { traceDirectory: string; toolCount: ToolCount };
+export type SimulatedRunOptions = {
+  traceDirectory: string;
+  toolCount: ToolCount;
+  task: ResolvedExampleTask;
+};
 
 export function runSimulatedLogTriage(
   simulatedRunOptions: SimulatedRunOptions,
 ): Promise<LogTriageResult> {
   return runLogTriage({
-    startAgent: createSimulatedAgent(simulatedRunOptions.toolCount),
+    startAgent: createSimulatedAgent(simulatedRunOptions.task, simulatedRunOptions.toolCount),
     decisionProvider: createFakeDecisionProvider({
-      answerQuestion: answerLikeAGoodProvider,
+      answerQuestion: answerLikeAGoodProvider(simulatedRunOptions.task.expectedToolNames),
       latencyInMilliseconds: 20,
     }),
     traceDirectory: simulatedRunOptions.traceDirectory,
     toolCount: simulatedRunOptions.toolCount,
+    task: simulatedRunOptions.task,
   });
 }

@@ -1,10 +1,11 @@
 import { estimateCatalogSize } from "@krinolabs/bench";
 import { createFakeDecisionProvider, type FakeAnswerFunction } from "@krinolabs/krino";
 import { MockLanguageModelV4 } from "ai/test";
-import { LOG_TRIAGE_TOOL_NAMES, selectLogTriageTools, type ToolCount } from "./log-triage.js";
+import { selectLogTriageTools, type ToolCount } from "./log-triage.js";
+import type { ResolvedExampleTask } from "./log-triage-tasks.js";
 import { type LogTriageResult, runLogTriage } from "./run-log-triage.js";
 
-// --fake: the AI SDK mock language model plays a scripted run, and krino's fake decision
+// --fake: the AI SDK mock language model plays the task's scripted run, and krino's fake decision
 // provider answers the decisions. No API key, no network.
 
 /** The fake model's ID. krino prices it as Claude Haiku 4.5, so the report shows costs. */
@@ -15,25 +16,6 @@ type MockGenerate = Exclude<NonNullable<MockModelOptions["doGenerate"]>, Array<u
 type MockGenerateResult = Exclude<MockGenerate, (...callArguments: never) => unknown>;
 type MockCallOptions = MockLanguageModelV4["doGenerateCalls"][number];
 type MockUsage = MockGenerateResult["usage"];
-
-type ScriptedToolCall = { toolName: string; toolInput: Record<string, string> };
-
-const SCRIPTED_TOOL_CALLS: ReadonlyArray<ScriptedToolCall> = [
-  { toolName: "get_request_trace", toolInput: { requestId: "REQ-7f3a" } },
-  {
-    toolName: "search_application_logs",
-    toolInput: {
-      serviceName: "payment-service",
-      query: "REQ-7f3a",
-      startTime: "2026-10-01T10:00:00Z",
-      endTime: "2026-10-01T10:15:00Z",
-    },
-  },
-];
-
-const SCRIPTED_ANSWER =
-  "REQ-7f3a failed in payment-service: the card was declined (do_not_honor), and " +
-  "checkout-service passed the error on. No service is down; ask the customer to try another card.";
 
 /** Tokens for the system prompt and task, on top of the tool definitions. */
 const PROMPT_TOKEN_COUNT = 120;
@@ -62,11 +44,15 @@ function scriptedUsage(
   };
 }
 
-function scriptedResult(stepIndex: number, cachedPrefixTokenCount: number): MockGenerateResult {
-  const scriptedToolCall = SCRIPTED_TOOL_CALLS[stepIndex];
+function scriptedResult(
+  task: ResolvedExampleTask,
+  stepIndex: number,
+  cachedPrefixTokenCount: number,
+): MockGenerateResult {
+  const scriptedToolCall = task.scriptedToolCalls[stepIndex];
   if (scriptedToolCall === undefined) {
     return {
-      content: [{ type: "text", text: SCRIPTED_ANSWER }],
+      content: [{ type: "text", text: task.scriptedAnswer }],
       finishReason: { unified: "stop", raw: "end_turn" },
       usage: scriptedUsage(stepIndex, cachedPrefixTokenCount, 60),
       warnings: [],
@@ -87,10 +73,13 @@ function scriptedResult(stepIndex: number, cachedPrefixTokenCount: number): Mock
   };
 }
 
-/** A mock model that calls the two log tools, then answers. */
-export function createFakeLogTriageModel(toolCount: ToolCount): MockLanguageModelV4 {
+/** A mock model that makes the task's scripted tool calls, then answers. */
+export function createFakeLogTriageModel(
+  task: ResolvedExampleTask,
+  toolCount: ToolCount,
+): MockLanguageModelV4 {
   const cachedPrefixTokenCount = estimateCatalogSize(
-    selectLogTriageTools(toolCount),
+    selectLogTriageTools(toolCount, task.expectedToolNames),
   ).estimatedTokenCount;
   return new MockLanguageModelV4({
     provider: "anthropic.messages",
@@ -100,36 +89,45 @@ export function createFakeLogTriageModel(toolCount: ToolCount): MockLanguageMode
       const stepIndex = callOptions.prompt.filter(
         (promptMessage) => promptMessage.role === "assistant",
       ).length;
-      return scriptedResult(stepIndex, cachedPrefixTokenCount);
+      return scriptedResult(task, stepIndex, cachedPrefixTokenCount);
     },
   });
 }
 
 /**
- * Answers tool selection like a good decision provider: the task needs the two log tools and
+ * Answers tool selection like a good decision provider: the task needs its expected tools and
  * nothing else. Risk questions (asked only for write tools; read-only tools are always allowed)
- * fall through to the fake's conservative answer, which suggests askHuman.
+ * fall through to the fake's conservative answer, "not sure", which suggests askHuman.
  */
-export const answerLikeAGoodProvider: FakeAnswerFunction = (decisionQuestion) => {
-  if (decisionQuestion.decisionKind !== "toolSelection") {
-    return null;
-  }
-  const isNeeded = LOG_TRIAGE_TOOL_NAMES.some((toolName) =>
-    decisionQuestion.questionText.startsWith(`Does the agent need the tool "${toolName}"`),
-  );
-  return { choice: isNeeded ? "yes" : "no", probability: 0.95 };
-};
+export function answerLikeAGoodProvider(
+  neededToolNames: ReadonlyArray<string>,
+): FakeAnswerFunction {
+  return (decisionQuestion) => {
+    if (decisionQuestion.decisionKind !== "toolSelection") {
+      return null;
+    }
+    const isNeeded = neededToolNames.some((toolName) =>
+      decisionQuestion.questionText.startsWith(`Does the agent need the tool "${toolName}"`),
+    );
+    return { choice: isNeeded ? "yes" : "no", probability: 0.95 };
+  };
+}
 
-export type FakeRunOptions = { traceDirectory: string; toolCount: ToolCount };
+export type FakeRunOptions = {
+  traceDirectory: string;
+  toolCount: ToolCount;
+  task: ResolvedExampleTask;
+};
 
 export function runFakeLogTriage(fakeRunOptions: FakeRunOptions): Promise<LogTriageResult> {
   return runLogTriage({
-    model: createFakeLogTriageModel(fakeRunOptions.toolCount),
+    model: createFakeLogTriageModel(fakeRunOptions.task, fakeRunOptions.toolCount),
     decisionProvider: createFakeDecisionProvider({
-      answerQuestion: answerLikeAGoodProvider,
+      answerQuestion: answerLikeAGoodProvider(fakeRunOptions.task.expectedToolNames),
       latencyInMilliseconds: 20,
     }),
     traceDirectory: fakeRunOptions.traceDirectory,
     toolCount: fakeRunOptions.toolCount,
+    task: fakeRunOptions.task,
   });
 }

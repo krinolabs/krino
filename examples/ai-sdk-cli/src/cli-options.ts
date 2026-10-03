@@ -1,11 +1,14 @@
 import { parseArgs } from "node:util";
 import { DEFAULT_TOOL_COUNT, TOOL_COUNTS, type ToolCount } from "./log-triage.js";
+import { DEFAULT_TASK_IDENTIFIER, TASK_IDENTIFIERS } from "./log-triage-tasks.js";
 
 export type CliOptions = {
   isFake: boolean;
   /** `--trace-dir`; `null` means krino's default folder. */
   traceDirectory: string | null;
   toolCount: ToolCount;
+  /** `--task`; one of `TASK_IDENTIFIERS`. */
+  taskIdentifier: string;
   showHelp: boolean;
 };
 
@@ -22,6 +25,7 @@ function parseCommandLine(argumentList: Array<string>) {
     options: {
       fake: { type: "boolean", default: false },
       tools: { type: "string" },
+      task: { type: "string" },
       "trace-dir": { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -39,6 +43,18 @@ function parseToolCount(toolCountText: string | undefined): ToolCount {
   return toolCount;
 }
 
+function parseTaskIdentifier(taskIdentifier: string | undefined): string {
+  if (taskIdentifier === undefined) {
+    return DEFAULT_TASK_IDENTIFIER;
+  }
+  if (!TASK_IDENTIFIERS.includes(taskIdentifier)) {
+    throw new CliUsageError(
+      `--task must be ${TASK_IDENTIFIERS.join(" or ")}; got "${taskIdentifier}".`,
+    );
+  }
+  return taskIdentifier;
+}
+
 export function parseCliOptions(argumentList: Array<string>): CliOptions {
   let parsedArguments: ReturnType<typeof parseCommandLine>;
   try {
@@ -51,6 +67,7 @@ export function parseCliOptions(argumentList: Array<string>): CliOptions {
     isFake: values.fake,
     traceDirectory: values["trace-dir"] ?? null,
     toolCount: parseToolCount(values.tools),
+    taskIdentifier: parseTaskIdentifier(values.task),
     showHelp: values.help,
   };
 }

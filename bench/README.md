@@ -11,12 +11,19 @@ no randomness: the same input always gives the same output.
 | `MOCK_TOOL_CATALOG`, `MOCK_TOOL_NAMES` | 100 tools: 10 domains × 10 tools. Each domain has 2–3 look-alike tools (`lookAlikeOf`) whose descriptions say when *not* to use them. |
 | `findMockTool`, `hasMockTool`, `toToolDescriptions` | Lookups by name (backed by a `Map`), and the catalog as krino `ToolDescription`s. |
 | `executeMockTool(toolName, input)` | Fake executor. Validates the input, then returns the tool's fixed JSON, the parsed input, and a digest of the input. Never throws: an unknown tool or bad input gives `executionStatus: "failed"`. |
-| `BENCH_TASKS` | 60 tasks: 20 `easy`, 20 `lookAlike`, 20 `multiStep`, each with `expectedToolNames` in call order. |
+| `BENCH_TASKS` | 60 tasks: 20 `easy`, 20 `lookAlike`, 20 `multiStep`, each with a stable `taskIdentifier` and `expectedToolNames` in call order. |
 | `estimateCatalogSize`, `reportDomainNoteShare` | Token estimate (characters ÷ 4) and how much of each description is shared domain-note text. |
 | `composeToolDescription`, `buildParametersSection` | Build a description from its core text, the generated `Parameters:` section, and the domain note. |
 
 Domains: orders, refunds, shipping, coupons, customers, inventory, payments, returns,
 support tickets, logs.
+
+## Task IDs
+
+Task IDs are stable; never reuse or renumber an id. Each task in `src/tasks/bench-tasks.ts`
+carries a literal `taskIdentifier` (`task-NNN`); none is derived from its position, so reordering
+the list changes nothing. A new task takes the next unused number. The id → `expectedToolNames`
+snapshot in `src/tasks/__snapshots__/` makes any change to a task's meaning show up in review.
 
 ## Hosts
 
