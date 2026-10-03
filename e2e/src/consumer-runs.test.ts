@@ -15,6 +15,26 @@ const consumer = e2eContext.consumerWithHostSdks;
 
 type HostRunOutput = { usedToolNames: Array<string>; answerText: string };
 
+/** The `krino report --json` fields these tests read (`packages/cli/src/report/report-types.ts`). */
+type ReportFields = {
+  reportSchemaVersion: number;
+  filters: { traceDirectory: string };
+  lines: { skippedLineCount: number };
+  records: {
+    agentStepCount: number;
+    runSummaryCount: number;
+    runCount: number;
+    projectNames: Array<string>;
+  };
+  decisions: Array<{
+    decisionKind: string;
+    decisionMode: string;
+    statusCounts: { answered: number };
+    agreementByHost: Array<{ hostName: string; agreementRate: number | null }>;
+  }>;
+  cacheHealth: { byHost: Array<{ hostName: string }> };
+};
+
 let traceDirectory = "";
 let aiSdkRun: CommandResult;
 let agentSdkRun: CommandResult;
@@ -71,7 +91,7 @@ describe("the installed krino CLI", () => {
       traceDirectory,
     ]);
     expect(reportResult.exitCode, reportResult.stderr).toBe(0);
-    const report = JSON.parse(reportResult.stdout);
+    const report: ReportFields = JSON.parse(reportResult.stdout);
     const agentStepCount = traceRecords.filter(
       (traceRecord) => traceRecord.recordType === "agentStep",
     ).length;
@@ -86,18 +106,16 @@ describe("the installed krino CLI", () => {
     });
     // The AI SDK run has three steps; the Agent SDK run at least one.
     expect(agentStepCount).toBeGreaterThanOrEqual(4);
-    const cacheHosts = report.cacheHealth.byHost.map(
-      (hostShares: { hostName: string }) => hostShares.hostName,
-    );
+    const cacheHosts = report.cacheHealth.byHost.map((hostShares) => hostShares.hostName);
     expect(cacheHosts.sort()).toEqual(["ai-sdk", "claude-agent-sdk"]);
     const toolSelection = report.decisions.find(
-      (decisionReport: { decisionKind: string }) => decisionReport.decisionKind === "toolSelection",
+      (decisionReport) => decisionReport.decisionKind === "toolSelection",
     );
-    expect(toolSelection.decisionMode).toBe("shadow");
-    expect(toolSelection.statusCounts.answered).toBe(2);
+    expect(toolSelection?.decisionMode).toBe("shadow");
+    expect(toolSelection?.statusCounts.answered).toBe(2);
     // The good fake provider suggested exactly the tools each run used.
-    expect(toolSelection.agreementByHost).toHaveLength(2);
-    expect(toolSelection.agreementByHost).toEqual(
+    expect(toolSelection?.agreementByHost).toHaveLength(2);
+    expect(toolSelection?.agreementByHost).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ hostName: "ai-sdk", agreementRate: 1 }),
         expect.objectContaining({ hostName: "claude-agent-sdk", agreementRate: 1 }),

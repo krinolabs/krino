@@ -69,13 +69,8 @@ describe("published types in a strict consumer project", () => {
     if (krinoPackage === undefined) {
       throw new Error("The global setup did not pack @krinolabs/krino.");
     }
-    const packedManifest = JSON.parse(
-      (await readPackedPackage(krinoPackage.tarballPath)).manifestText,
-    );
-    const entrySpecifiers = publicEntrySpecifiers(
-      "@krinolabs/krino",
-      Object.keys(packedManifest.exports),
-    );
+    const packedManifest = (await readPackedPackage(krinoPackage.tarballPath)).manifest;
+    const entrySpecifiers = publicEntrySpecifiers("@krinolabs/krino", packedManifest.exportKeys);
     // Imports of other packages (ai, the Agent SDK) are not checked for coverage.
     const krinoEntryExports = readEntryExports(
       nodePath.join(consumer.directory, PUBLIC_API_FILE),

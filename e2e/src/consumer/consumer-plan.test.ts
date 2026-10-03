@@ -7,7 +7,13 @@ function manifest(
   version: string,
   dependencies: Array<[string, string]> = [],
 ): PackedManifest {
-  return { name, version, dependencies: new Map(dependencies), optionalDependencies: new Map() };
+  return {
+    name,
+    version,
+    dependencies: new Map(dependencies),
+    optionalDependencies: new Map(),
+    exportKeys: [],
+  };
 }
 
 const KRINO = {
@@ -108,7 +114,10 @@ describe("planConsumerProject", () => {
     const overrideNames = Object.keys(consumerPlan.settings.overrides);
     expect(overrideNames).toEqual(["odd", "constructor", "toString", "__proto__"]);
     expect(Object.hasOwn(consumerPlan.settings.overrides, "__proto__")).toBe(true);
-    const writtenOverrides = JSON.parse(consumerPlan.settingsYaml).overrides;
+    const writtenSettings: { overrides: Record<string, string> } = JSON.parse(
+      consumerPlan.settingsYaml,
+    );
+    const writtenOverrides = writtenSettings.overrides;
     expect(Object.getOwnPropertyDescriptor(writtenOverrides, "__proto__")?.value).toBe(
       "link:/store/__proto__@from/repo/odd",
     );

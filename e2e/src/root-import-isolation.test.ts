@@ -99,6 +99,7 @@ describe("a consumer without ai or @anthropic-ai/* installed", () => {
       emptyTraceDirectory,
     ]);
     expect(reportResult.exitCode, reportResult.stderr).toBe(0);
-    expect(JSON.parse(reportResult.stdout).reportSchemaVersion).toBe(1);
+    const report: { reportSchemaVersion: number } = JSON.parse(reportResult.stdout);
+    expect(report.reportSchemaVersion).toBe(1);
   });
 });

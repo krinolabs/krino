@@ -16,6 +16,22 @@ describe("parsePackedManifest", () => {
       ["citty", "0.2.2"],
     ]);
     expect(manifest.optionalDependencies.size).toBe(0);
+    expect(manifest.exportKeys).toEqual([]);
+  });
+
+  it("reads the keys of the exports map", () => {
+    const manifest = parsePackedManifest(
+      JSON.stringify({
+        name: "@krinolabs/krino",
+        version: "0.0.1",
+        exports: {
+          ".": { import: "./dist/index.js" },
+          "./ai-sdk": {},
+          "./package.json": "./package.json",
+        },
+      }),
+    );
+    expect(manifest.exportKeys).toEqual([".", "./ai-sdk", "./package.json"]);
   });
 
   it("keeps dependency names that collide with Object.prototype as plain names", () => {

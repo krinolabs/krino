@@ -8,6 +8,8 @@ export type PackedManifest = {
   version: string;
   dependencies: ReadonlyMap<string, string>;
   optionalDependencies: ReadonlyMap<string, string>;
+  /** Keys of the `exports` map (`.`, `./ai-sdk`, …); empty without one. */
+  exportKeys: Array<string>;
 };
 
 export type PackedContents = {
@@ -51,6 +53,7 @@ export function parsePackedManifest(manifestText: string): PackedManifest {
     version: parsedManifest.version,
     dependencies: dependencyMap(parsedManifest.dependencies),
     optionalDependencies: dependencyMap(parsedManifest.optionalDependencies),
+    exportKeys: isRecord(parsedManifest.exports) ? Object.keys(parsedManifest.exports) : [],
   };
 }
 
