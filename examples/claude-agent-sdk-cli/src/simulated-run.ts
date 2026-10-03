@@ -205,22 +205,20 @@ export function createSimulatedAgent(toolCount: ToolCount): StartAgent {
 }
 
 /**
- * Answers like a good decision provider: the task needs the two log tools and nothing else,
- * and calling a read-only log tool is safe.
+ * Answers tool selection like a good decision provider: the task needs the two log tools and
+ * nothing else. Risk questions (asked only for write tools; read-only tools are always allowed)
+ * fall through to the fake's conservative answer, which suggests askHuman.
  */
 export const answerLikeAGoodProvider: FakeAnswerFunction = (decisionQuestion) => {
-  if (decisionQuestion.decisionKind === "toolSelection") {
-    const isNeeded = LOG_TRIAGE_TOOL_NAMES.some((toolName) =>
-      decisionQuestion.questionText.startsWith(
-        `Does the agent need the tool "${toClaudeAgentSdkToolName(toolName)}"`,
-      ),
-    );
-    return { choice: isNeeded ? "yes" : "no", probability: 0.95 };
+  if (decisionQuestion.decisionKind !== "toolSelection") {
+    return null;
   }
-  if (decisionQuestion.decisionKind === "riskGate") {
-    return { choice: "yes", probability: 0.9 };
-  }
-  return null;
+  const isNeeded = LOG_TRIAGE_TOOL_NAMES.some((toolName) =>
+    decisionQuestion.questionText.startsWith(
+      `Does the agent need the tool "${toClaudeAgentSdkToolName(toolName)}"`,
+    ),
+  );
+  return { choice: isNeeded ? "yes" : "no", probability: 0.95 };
 };
 
 export type SimulatedRunOptions = { traceDirectory: string; toolCount: ToolCount };

@@ -1,6 +1,13 @@
 import { findMockTool, selectToolSubset, toToolDescriptions } from "@krinolabs/bench";
 import { toClaudeAgentSdkToolName } from "@krinolabs/bench/claude-agent-sdk";
-import type { DecisionProvider, KrinoConfig, ToolDescription, TraceSink } from "@krinolabs/krino";
+import {
+  type DecisionProvider,
+  type KrinoConfig,
+  type RiskGatePolicy,
+  type ToolDescription,
+  type TraceSink,
+  thresholdFromCosts,
+} from "@krinolabs/krino";
 
 // The log-triage agent: one task, one prompt, a slice of the bench catalog, krino in shadow mode.
 
@@ -34,8 +41,57 @@ export const MAX_TURN_COUNT = 6;
 export const DECISION_TIMEOUT_IN_MILLISECONDS = 5000;
 export const FLUSH_TIMEOUT_IN_MILLISECONDS = 6000;
 
-/** The log tools only read. The risk gate suggests "allow" at this confidence or above. */
-const RISK_ALLOW_THRESHOLD = 0.8;
+// Risk-gate policy, by what a tool does (its verb). Read-only tools are always allowed, write
+// tools need a confident "safe" answer, destructive tools are blocked in code.
+
+/** Verbs of tools that only read. `export_logs` returns log lines; it changes nothing. */
+const READ_ONLY_VERBS: ReadonlyArray<string> = [
+  "get",
+  "list",
+  "search",
+  "find",
+  "check",
+  "validate",
+  "estimate",
+  "tail",
+  "export",
+];
+
+/** Verbs of tools that destroy data. The bench catalog has none today; any added are blocked. */
+const DESTRUCTIVE_VERBS: ReadonlyArray<string> = ["delete", "purge"];
+
+/** Asking a person costs $0.50, a bad write (a wrong ticket) costs $5 → 1 - 0.50 / 5 = 0.9. */
+export const WRITE_ALLOW_THRESHOLD = thresholdFromCosts({
+  costOfAskingInUsd: 0.5,
+  costOfBadCallInUsd: 5,
+});
+
+export type ToolRisk = "readOnly" | "write" | "destructive";
+
+/** Classifies a bench tool name (without the `mcp__krino-bench__` prefix). */
+export function classifyToolRisk(toolName: string): ToolRisk {
+  const toolVerb = toolName.split("_")[0] ?? "";
+  if (DESTRUCTIVE_VERBS.includes(toolVerb)) {
+    return "destructive";
+  }
+  return READ_ONLY_VERBS.includes(toolVerb) ? "readOnly" : "write";
+}
+
+/** Takes bench names; returns the policy under Agent SDK names, as krino's hook sees them. */
+export function buildRiskGatePolicy(toolNames: ReadonlyArray<string>): RiskGatePolicy {
+  const agentToolNamesWithRisk = (toolRisk: ToolRisk): Array<string> =>
+    toolNames
+      .filter((toolName) => classifyToolRisk(toolName) === toolRisk)
+      .map(toClaudeAgentSdkToolName);
+  return {
+    blockedToolNames: agentToolNamesWithRisk("destructive"),
+    alwaysAllowedToolNames: agentToolNamesWithRisk("readOnly"),
+    // Object.fromEntries defines own properties, so no tool name can reach the prototype.
+    allowThresholdByToolName: Object.fromEntries(
+      agentToolNamesWithRisk("write").map((toolName) => [toolName, WRITE_ALLOW_THRESHOLD]),
+    ),
+  };
+}
 
 /** Bench names: the task's tools first, then the rest of the logs domain, then the others. */
 export function selectLogTriageToolNames(toolCount: ToolCount): Array<string> {
@@ -52,8 +108,8 @@ export function toAgentToolDescriptions(toolNames: ReadonlyArray<string>): Array
 }
 
 export type LogTriageKrinoInputs = {
-  /** Agent SDK names (`mcp__krino-bench__...`), as krino's hook sees them. */
-  agentToolNames: ReadonlyArray<string>;
+  /** Bench names; the policy maps them to Agent SDK names. */
+  toolNames: ReadonlyArray<string>;
   decisionProvider: DecisionProvider;
   traceSink: TraceSink;
 };
@@ -63,13 +119,7 @@ export function createLogTriageKrinoConfig(krinoInputs: LogTriageKrinoInputs): K
     projectName: PROJECT_NAME,
     decisionModes: { toolSelection: "shadow", riskGate: "shadow" },
     decisionTimeoutInMilliseconds: DECISION_TIMEOUT_IN_MILLISECONDS,
-    riskGatePolicy: {
-      blockedToolNames: [],
-      alwaysAllowedToolNames: [],
-      allowThresholdByToolName: Object.fromEntries(
-        krinoInputs.agentToolNames.map((toolName) => [toolName, RISK_ALLOW_THRESHOLD]),
-      ),
-    },
+    riskGatePolicy: buildRiskGatePolicy(krinoInputs.toolNames),
     decisionProvider: krinoInputs.decisionProvider,
     traceSink: krinoInputs.traceSink,
   };

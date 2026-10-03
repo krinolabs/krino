@@ -15,6 +15,8 @@ Run in this order. Each item must pass before release.
       (`LIVE_MODEL_IDENTIFIER` in `examples/claude-agent-sdk-cli/src/log-triage.ts`). In
       `examples/claude-agent-sdk-cli`: `pnpm start --trace-dir ./traces`, then
       `pnpm exec krino report --trace-dir ./traces` (needs both keys).
+- [ ] Agent SDK: confirm PreToolUse fires after the assistant tool_use message, as the simulated
+      stream assumes.
 - [ ] First hand-made trace (M3): 10 runs + `krino report` screenshot.
 - [ ] WP-10: `krino bench --pilot`, then the full bench twice (stable results).
 - [ ] WP-10: scaling check (10 / 25 / 50 / 100 tools).

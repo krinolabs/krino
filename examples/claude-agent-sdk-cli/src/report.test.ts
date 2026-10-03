@@ -31,8 +31,9 @@ type ReportJson = {
     decisionMode: string;
     statusCounts: { answered: number };
     agreementByHost: Array<{ hostName: string; agreementRate: number | null }>;
-    suggestionsByHost: Array<{ hostName: string; allow: number }>;
+    suggestionsByHost: Array<{ hostName: string; allow: number; askHuman: number; block: number }>;
     costSavedIfEnforced: { grossSavingInUsd: number | null };
+    decisionLatencyInMilliseconds: { p50: number | null; p95: number | null };
   }>;
 };
 
@@ -87,12 +88,14 @@ describe("krino report on the claude-agent-sdk-cli traces", () => {
     expect(toolSelection?.costSavedIfEnforced.grossSavingInUsd).toBeGreaterThan(0);
   });
 
-  it("shows a shadow risk-gate suggestion for each tool call", () => {
+  it("allows both read-only tool calls by policy, without asking the provider", () => {
     const riskGate = findDecision(report, "riskGate");
     expect(riskGate?.decisionMode).toBe("shadow");
     expect(riskGate?.suggestionsByHost).toEqual([
-      expect.objectContaining({ hostName: "claude-agent-sdk", allow: 2 }),
+      expect.objectContaining({ hostName: "claude-agent-sdk", allow: 2, askHuman: 0, block: 0 }),
     ]);
+    // alwaysAllowedToolNames answers in code: no provider call, so no decision latency.
+    expect(riskGate?.decisionLatencyInMilliseconds).toEqual({ p50: null, p95: null });
   });
 
   it("prints the text report the README shows", () => {

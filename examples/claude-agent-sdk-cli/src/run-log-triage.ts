@@ -87,7 +87,7 @@ export async function runLogTriage(runOptions: LogTriageRunOptions): Promise<Log
   const toolDescriptions = toAgentToolDescriptions(toolNames);
   const krino = createKrino(
     createLogTriageKrinoConfig({
-      agentToolNames: toolDescriptions.map((toolDescription) => toolDescription.toolName),
+      toolNames,
       decisionProvider: runOptions.decisionProvider,
       traceSink: createFileTraceSink({
         projectName: PROJECT_NAME,
