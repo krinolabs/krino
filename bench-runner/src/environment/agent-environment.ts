@@ -28,6 +28,8 @@ export type AgentEnvironment = {
   /** The model the agent is configured with. The output also lists what the traces recorded. */
   agentModelIdentifier: string;
   decisionProviderName: string;
+  /** The price-table row the spend estimate prices decisions with. */
+  decisionPriceIdentifier: string;
   /** A new model for each run (the fake one keeps per-run cache state). */
   createModel: (task: BenchTask) => LanguageModel;
   /** Asked once per run, at step 0 (step-zero) or for the risk gate (every setup). */
@@ -61,6 +63,7 @@ export function createFakeAgentEnvironment(): AgentEnvironment {
     mode: "fake",
     agentModelIdentifier: FAKE_MODEL_IDENTIFIER,
     decisionProviderName: FAKE_PROVIDER_NAME,
+    decisionPriceIdentifier: FAKE_DECISION_MODEL_VERSION,
     createModel: (task) => createFakeAgentModel(task.expectedToolNames),
     createDecisionProvider: (task) => fakeProvider(task.expectedToolNames),
     // A good per-step router keeps the tools still needed: the expected ones not yet called.
@@ -78,6 +81,7 @@ export function createLiveAgentEnvironment(): AgentEnvironment {
     mode: "live",
     agentModelIdentifier: LIVE_MODEL_IDENTIFIER,
     decisionProviderName: jevProvider.providerName,
+    decisionPriceIdentifier: JEV_MODEL_IDENTIFIER,
     createModel: () => gateway(LIVE_MODEL_IDENTIFIER),
     createDecisionProvider: () => jevProvider,
     createStepDecisionProvider: () => jevProvider,

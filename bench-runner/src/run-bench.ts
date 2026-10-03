@@ -1,5 +1,6 @@
 import { BENCH_TASKS, estimateCatalogSize } from "@krinolabs/bench";
 import { selectLogTriageTools } from "@krinolabs/example-ai-sdk-cli/agent";
+import { DEFAULT_MODEL_PRICES, findModelPrice, type ModelPrice } from "@krinolabs/krino";
 import type { AgentEnvironment } from "./environment/agent-environment.js";
 import { readSdkVersions, type SdkVersions } from "./environment/installed-versions.js";
 import {
@@ -29,6 +30,8 @@ import {
   type RunObservation,
   runBenchTask,
 } from "./setups/run-bench-task.js";
+import { estimateRunCostInUsd } from "./spend/spend-estimate.js";
+import { checkEstimate, shouldStopBeforeRun, spendLimitStopMessage } from "./spend/spend-guard.js";
 
 // Runs the plan one run at a time, then scores it and reads each setup's report.
 
@@ -51,7 +54,36 @@ export type BenchDependencies = {
   reportProgress?: (progressLine: string) => void;
 };
 
-export type BenchOutcome = { outcomeKind: "completed"; result: BenchResult };
+export type BenchOutcome =
+  | { outcomeKind: "completed"; result: BenchResult }
+  | { outcomeKind: "stoppedAtSpendLimit"; result: BenchResult; message: string }
+  | { outcomeKind: "refusedOverEstimate"; estimatedInUsd: number; message: string };
+
+/** Each planned run's estimate, priced with the environment's prices (overrides first). */
+function estimatePlan(
+  runPlan: ReadonlyArray<PlannedRun>,
+  agentEnvironment: AgentEnvironment,
+): Array<number> {
+  const modelPrices: Array<ModelPrice> = [
+    ...agentEnvironment.priceOverrides,
+    ...DEFAULT_MODEL_PRICES,
+  ];
+  const agentModelPrice = findModelPrice(agentEnvironment.agentModelIdentifier, modelPrices);
+  const decisionModelPrice = findModelPrice(agentEnvironment.decisionPriceIdentifier, modelPrices);
+  return runPlan.map((plannedRun) =>
+    estimateRunCostInUsd({
+      setupName: plannedRun.setupName,
+      toolCount: plannedRun.toolCount,
+      task: plannedRun.task,
+      agentModelPrice,
+      decisionModelPrice,
+    }),
+  );
+}
+
+function totalOf(amounts: ReadonlyArray<number>): number {
+  return amounts.reduce((total, amount) => total + amount, 0);
+}
 
 function catalogSizeRecord(runPlan: ReadonlyArray<PlannedRun>): CatalogSizeRecord {
   const tokenCountsByToolCount = new Map<number, Array<number>>();
@@ -142,10 +174,44 @@ export async function runBench(
     runSelection: benchRequest.runSelection,
     tasks: BENCH_TASKS,
   });
+  const runEstimates = estimatePlan(runPlan, agentEnvironment);
+  const estimatedInUsd = totalOf(runEstimates);
+  const estimateCheck = checkEstimate({
+    estimatedInUsd,
+    limitInUsd: benchRequest.maxSpendInUsd,
+    pilotEstimateInUsd:
+      benchRequest.runSelection.selectionKind === "pilot"
+        ? null
+        : totalOf(
+            estimatePlan(
+              buildRunPlan({
+                setupNames: benchRequest.setupNames,
+                toolCounts: benchRequest.toolCounts,
+                runSelection: { selectionKind: "pilot" },
+                tasks: BENCH_TASKS,
+              }),
+              agentEnvironment,
+            ),
+          ),
+  });
+  if (!estimateCheck.withinLimit) {
+    return { outcomeKind: "refusedOverEstimate", estimatedInUsd, message: estimateCheck.message };
+  }
 
   const observations: Array<RunObservation> = [];
   let spentInUsd = 0;
+  let stoppedAtSpendLimit = false;
   for (const plannedRun of runPlan) {
+    if (
+      shouldStopBeforeRun({
+        spentInUsd,
+        nextRunEstimateInUsd: runEstimates[plannedRun.runIndex] ?? 0,
+        limitInUsd: benchRequest.maxSpendInUsd,
+      })
+    ) {
+      stoppedAtSpendLimit = true;
+      break;
+    }
     const observation = await executeRun({
       plannedRun,
       traceDirectory: benchRequest.traceDirectory,
@@ -169,12 +235,12 @@ export async function runBench(
     });
   }
   const spend: SpendRecord = {
-    estimatedInUsd: 0,
+    estimatedInUsd,
     limitInUsd: benchRequest.maxSpendInUsd,
     spentInUsd,
     plannedRunCount: runPlan.length,
     finishedRunCount: observations.length,
-    stopReason: null,
+    stopReason: stoppedAtSpendLimit ? "spendLimit" : null,
   };
   const result: BenchResult = {
     benchResultSchemaVersion: BENCH_RESULT_SCHEMA_VERSION,
@@ -211,5 +277,17 @@ export async function runBench(
     setups,
     runs: observations.map(toRunRecord),
   };
+  if (stoppedAtSpendLimit) {
+    return {
+      outcomeKind: "stoppedAtSpendLimit",
+      result,
+      message: spendLimitStopMessage({
+        spentInUsd,
+        limitInUsd: benchRequest.maxSpendInUsd,
+        finishedRunCount: observations.length,
+        plannedRunCount: runPlan.length,
+      }),
+    };
+  }
   return { outcomeKind: "completed", result };
 }

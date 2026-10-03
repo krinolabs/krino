@@ -107,6 +107,10 @@ async function runParsedCli(
     },
   );
 
+  if (outcome.outcomeKind === "refusedOverEstimate") {
+    cliOutput.writeError(`${outcome.message}\n`);
+    return EXIT_CODES.refusedOverEstimate;
+  }
   const { result } = outcome;
   const outputPath = nodePath.resolve(
     dependencies.workingDirectory(),
@@ -118,6 +122,10 @@ async function runParsedCli(
     benchOptions.printJson ? `${JSON.stringify(result, null, 2)}\n` : renderBenchText(result),
   );
   cliOutput.writeError(`krino-bench: results written to ${outputPath}\n`);
+  if (outcome.outcomeKind === "stoppedAtSpendLimit") {
+    cliOutput.writeError(`${outcome.message}\n`);
+    return EXIT_CODES.stoppedAtSpendLimit;
+  }
   return EXIT_CODES.completed;
 }
 
