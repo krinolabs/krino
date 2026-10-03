@@ -1,0 +1,207 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`BENCH_TASKS identifiers > map to the same expected tools as before (review any change to this snapshot) 1`] = `
+{
+  "task-001": [
+    "cancel_order",
+  ],
+  "task-002": [
+    "add_order_note",
+  ],
+  "task-003": [
+    "approve_refund",
+  ],
+  "task-004": [
+    "list_order_refunds",
+  ],
+  "task-005": [
+    "get_shipping_rates",
+  ],
+  "task-006": [
+    "list_carriers",
+  ],
+  "task-007": [
+    "deactivate_coupon",
+  ],
+  "task-008": [
+    "list_active_coupons",
+  ],
+  "task-009": [
+    "update_customer_email",
+  ],
+  "task-010": [
+    "merge_customer_accounts",
+  ],
+  "task-011": [
+    "transfer_stock",
+  ],
+  "task-012": [
+    "adjust_stock_count",
+  ],
+  "task-013": [
+    "retry_failed_payment",
+  ],
+  "task-014": [
+    "get_saved_payment_methods",
+  ],
+  "task-015": [
+    "generate_return_label",
+  ],
+  "task-016": [
+    "reject_return",
+  ],
+  "task-017": [
+    "close_ticket",
+  ],
+  "task-018": [
+    "merge_tickets",
+  ],
+  "task-019": [
+    "get_job_run_log",
+  ],
+  "task-020": [
+    "export_logs",
+  ],
+  "task-021": [
+    "get_order_status",
+  ],
+  "task-022": [
+    "get_order_state",
+  ],
+  "task-023": [
+    "create_refund",
+  ],
+  "task-024": [
+    "issue_store_credit",
+  ],
+  "task-025": [
+    "get_shipment_tracking",
+  ],
+  "task-026": [
+    "estimate_delivery_window",
+  ],
+  "task-027": [
+    "validate_coupon",
+  ],
+  "task-028": [
+    "get_coupon_usage",
+  ],
+  "task-029": [
+    "find_customer_by_email",
+  ],
+  "task-030": [
+    "suspend_customer_account",
+  ],
+  "task-031": [
+    "get_stock_availability",
+  ],
+  "task-032": [
+    "list_out_of_stock_items",
+  ],
+  "task-033": [
+    "capture_payment",
+  ],
+  "task-034": [
+    "accept_dispute",
+  ],
+  "task-035": [
+    "create_exchange_request",
+  ],
+  "task-036": [
+    "check_return_window",
+  ],
+  "task-037": [
+    "send_customer_reply",
+  ],
+  "task-038": [
+    "escalate_ticket",
+  ],
+  "task-039": [
+    "search_audit_logs",
+  ],
+  "task-040": [
+    "tail_service_logs",
+  ],
+  "task-041": [
+    "find_customer_by_email",
+    "list_customer_orders",
+  ],
+  "task-042": [
+    "check_refund_eligibility",
+    "create_refund",
+  ],
+  "task-043": [
+    "report_lost_package",
+    "create_support_ticket",
+  ],
+  "task-044": [
+    "validate_coupon",
+    "apply_coupon_to_order",
+  ],
+  "task-045": [
+    "get_stock_level",
+    "reserve_stock",
+  ],
+  "task-046": [
+    "get_payment_status",
+    "retry_failed_payment",
+  ],
+  "task-047": [
+    "inspect_returned_item",
+    "approve_return",
+  ],
+  "task-048": [
+    "get_error_rate",
+    "add_ticket_comment",
+  ],
+  "task-049": [
+    "list_order_payments",
+    "get_shipment_status",
+  ],
+  "task-050": [
+    "create_shipping_label",
+    "schedule_pickup",
+  ],
+  "task-051": [
+    "get_restock_date",
+    "create_purchase_order",
+  ],
+  "task-052": [
+    "get_webhook_delivery_log",
+    "create_support_ticket",
+  ],
+  "task-053": [
+    "find_customer_by_email",
+    "get_customer_loyalty_points",
+  ],
+  "task-054": [
+    "get_email_delivery_log",
+    "get_order_details",
+  ],
+  "task-055": [
+    "cancel_order",
+    "release_stock_reservation",
+  ],
+  "task-056": [
+    "get_dispute_details",
+    "get_shipment_tracking",
+    "submit_dispute_evidence",
+  ],
+  "task-057": [
+    "create_return_request",
+    "generate_return_label",
+  ],
+  "task-058": [
+    "get_refund_status",
+    "escalate_refund",
+  ],
+  "task-059": [
+    "get_request_trace",
+    "search_application_logs",
+  ],
+  "task-060": [
+    "update_order_address",
+    "add_order_note",
+  ],
+}
+`;
