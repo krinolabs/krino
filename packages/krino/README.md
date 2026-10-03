@@ -59,14 +59,18 @@ const tools = {
   }),
 };
 
-const result = await generateText(
-  withKrino(
-    { model: "anthropic/claude-haiku-4.5", tools, prompt: "Weather in Paris?", stopWhen: stepCountIs(5) },
-    krino,
-  ),
-);
-console.log(result.text);
-await krino.flushAll(DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS);
+try {
+  const result = await generateText(
+    withKrino(
+      { model: "anthropic/claude-haiku-4.5", tools, prompt: "Weather in Paris?", stopWhen: stepCountIs(5) },
+      krino,
+    ),
+  );
+  console.log(result.text);
+} finally {
+  // Runs on errors too, so the traces reach disk before the process exits.
+  await krino.flushAll(DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS);
+}
 ```
 
 No AI Gateway key yet? Remove the `decisionProvider` line. krino falls back to the fake
