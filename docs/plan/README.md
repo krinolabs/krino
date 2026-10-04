@@ -84,18 +84,18 @@ flowchart LR
 
 | Done | WP | Title |
 |---|---|---|
-| ☐ | [WP-00](./work-packages/wp-00-repo-scaffold.md) | Repo scaffold |
-| ☐ | [WP-01](./work-packages/wp-01-contracts.md) | Contracts |
-| ☐ | [WP-02](./work-packages/wp-02-core-runtime.md) | Core runtime |
-| ☐ | [WP-03](./work-packages/wp-03-decision-providers.md) | Decision providers |
-| ☐ | [WP-04](./work-packages/wp-04-file-trace-sink-redaction.md) | File trace sink + redaction |
-| ☐ | [WP-05](./work-packages/wp-05-mock-tool-catalog-task-set.md) | Mock tool catalog + task set |
-| ☐ | [WP-06](./work-packages/wp-06-vercel-ai-sdk-adapter.md) | Vercel AI SDK adapter |
-| ☐ | [WP-07](./work-packages/wp-07-claude-agent-sdk-adapter.md) | Claude Agent SDK adapter |
-| ☐ | [WP-08](./work-packages/wp-08-risk-gate-policy.md) | Risk gate policy |
-| ☐ | [WP-09](./work-packages/wp-09-cli-foundation-krino-report.md) | CLI foundation + `krino report` |
-| ☐ | [WP-10](./work-packages/wp-10-krino-bench.md) | `krino bench` |
-| ☐ | [WP-11](./work-packages/wp-11-krino-init-krino-doctor.md) | `krino init` + `krino doctor` |
-| ☐ | [WP-12](./work-packages/wp-12-examples.md) | Examples |
-| ☐ | [WP-13](./work-packages/wp-13-docs-release.md) | Docs + release |
-| ☐ | [WP-14](./work-packages/wp-14-end-to-end-qa.md) | End-to-end QA |
+| ☑ | [WP-00](./work-packages/wp-00-repo-scaffold.md) | Repo scaffold |
+| ☑ | [WP-01](./work-packages/wp-01-contracts.md) | Contracts |
+| ☑ | [WP-02](./work-packages/wp-02-core-runtime.md) | Core runtime |
+| ☑ | [WP-03](./work-packages/wp-03-decision-providers.md) | Decision providers |
+| ☑ | [WP-04](./work-packages/wp-04-file-trace-sink-redaction.md) | File trace sink + redaction |
+| ☑ | [WP-05](./work-packages/wp-05-mock-tool-catalog-task-set.md) | Mock tool catalog + task set |
+| ☑ | [WP-06](./work-packages/wp-06-vercel-ai-sdk-adapter.md) | Vercel AI SDK adapter |
+| ☑ | [WP-07](./work-packages/wp-07-claude-agent-sdk-adapter.md) | Claude Agent SDK adapter |
+| ☑ | [WP-08](./work-packages/wp-08-risk-gate-policy.md) | Risk gate policy |
+| ☑ | [WP-09](./work-packages/wp-09-cli-foundation-krino-report.md) | CLI foundation + `krino report` |
+| ☑ | [WP-10](./work-packages/wp-10-krino-bench.md) | `krino bench` |
+| ☑ | [WP-11](./work-packages/wp-11-krino-init-krino-doctor.md) | `krino init` + `krino doctor` |
+| ☑ | [WP-12](./work-packages/wp-12-examples.md) | Examples |
+| ☑ | [WP-13](./work-packages/wp-13-docs-release.md) | Docs + release |
+| ☑ | [WP-14](./work-packages/wp-14-end-to-end-qa.md) | End-to-end QA |

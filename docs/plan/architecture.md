@@ -60,8 +60,8 @@ flowchart LR
 | Pending-decision tracker | Tracks background calls; flush; writes `cutOff` | `src/core/` | sink port |
 | Decision providers | Answer typed questions | `src/providers/` | contracts; Jev provider uses `ai` |
 | Trace sink (file) | Append JSONL; daily files; rotation; redaction | `src/sinks/`, `src/redaction/` | contracts, Node `fs` |
-| AI SDK adapter | `prepareStep` (step 0), wraps tool `execute`, reads usage | `src/adapters/ai-sdk/` | runtime, `ai` (peer) |
-| Tool selection | Claude Agent SDK: `disallowedTools` at query start (run start only). `allowedTools` is never changed: it controls approval, not availability. |
+| AI SDK adapter | `prepareStep`: decides at step 0; enforce returns the same `activeTools` on every step (ADR-020); wraps tool `execute`; reads usage | `src/adapters/ai-sdk/` | runtime, `ai` (peer) |
+| Claude Agent SDK adapter | Enforce tool selection adds the unselected known tools to `disallowedTools` at query start (run start only); never changes `allowedTools`, which controls approval, not availability (ADR-019). `PreToolUse` hook for the risk gate; reads usage from the `result` message | `src/adapters/claude-agent-sdk/` | runtime, `@anthropic-ai/claude-agent-sdk` (peer) |
 | CLI | `report`, `bench`, `init`, `doctor` | `packages/cli/` | trace format, DuckDB |
 | Bench catalog | 100 mock tools, 60 tasks, fake executors | `bench/` | host SDKs (dev only) |
 
@@ -101,7 +101,7 @@ sequenceDiagram
 ### 4.2 Enforce tool selection (step 0 only)
 
 - The adapter **awaits** the decision, up to `decisionTimeoutInMilliseconds` (default 800 ms).
-- If the answer is confident: step 0 gets `activeTools = selected tools`. **Steps 1+ keep the same list.**
+- If the answer is confident: step 0 gets `activeTools = selected tools`. **Steps 1+ keep the same list.** AI SDK: `prepareStep`'s `activeTools` lasts one step, so the adapter returns the locked list on every step (ADR-020). Claude Agent SDK: the unselected tools go into `disallowedTools` once, at query start (ADR-019).
 - If the answer fails, times out, or is not confident: all tools (fail open).
 - About 5% of runs (`explorationRate`) skip enforcement to keep counterfactual data.
 
@@ -155,6 +155,8 @@ sequenceDiagram
 | D15 | `@krinolabs/krino` + `@krinolabs/cli` only | CLI's DuckDB native binary must not enter the app | One package; one package per adapter |
 | D16 | Optional peer dependencies for host SDKs | Users install only their host | Bundled host SDKs |
 | D17 | Daily JSONL files, rotate at 50 MB | Simple, appendable, easy to delete | One file per run; one big file |
+| D19 | Claude Agent SDK pruning uses `disallowedTools` ([ADR-019](../adr/ADR-019-agent-sdk-pruning-uses-disallowed-tools.md)) | In SDK 0.3.286 `allowedTools` controls approval only and tools stay in the prompt; krino changes availability, never approval | Narrowing `allowedTools`; setting `tools` (built-in tools only) |
+| D20 | AI SDK enforce returns the same `activeTools` on every step; shadow returns none ([ADR-020](../adr/ADR-020-ai-sdk-active-tools-per-step.md)) | In `ai` 7.0.126 `prepareStep`'s `activeTools` applies to that step only, so a step-0-only list falls back to all tools on step 1 and breaks the cache | `activeTools` on step 0 only |
 
 ---
 
