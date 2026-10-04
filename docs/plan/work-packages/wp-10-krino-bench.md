@@ -1,6 +1,6 @@
 # WP-10 · `krino-bench` (private command in `@krinolabs/bench-runner`)
 
-> **Branch:** `wp-10-krino-bench`  |  **Status:** ☐ not started
+> **Branch:** `wp-10-krino-bench`  |  **Status:** ✅ merged ([PR #15](https://github.com/krinolabs/krino/pull/15))
 > **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 

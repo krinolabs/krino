@@ -22,6 +22,8 @@ Run in this order. Each item must pass before release.
       stream assumes.
 - [ ] Agent SDK live run: confirm the PreToolUse check sees the exact built-in tool names Read,
       Grep, and Glob.
+- [ ] Agent SDK: measure the real input-token saving of disallowedTools pruning (example in shadow
+      vs. enforce mode, same task; compare input tokens).
 - [ ] First hand-made trace (M3): 10 runs + `krino report` screenshot.
 - [ ] WP-10: build once: `pnpm turbo run build --filter=@krinolabs/bench-runner...`. Every bench
       command needs AI_GATEWAY_API_KEY, prints its spend estimate, and refuses to start (exit 4)
