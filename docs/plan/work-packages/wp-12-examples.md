@@ -1,6 +1,6 @@
 # WP-12 · Examples
 
-> **Branch:** `wp-12-examples`  |  **Status:** ☐ not started
+> **Branch:** `wp-12-examples`  |  **Status:** ✅ merged ([PR #13](https://github.com/krinolabs/krino/pull/13))
 > **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 

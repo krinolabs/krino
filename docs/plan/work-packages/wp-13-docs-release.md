@@ -1,6 +1,6 @@
 # WP-13 · Docs + release
 
-> **Branch:** `wp-13-docs-release`  |  **Status:** ☐ not started
+> **Branch:** `wp-13-docs-release`  |  **Status:** ✅ merged ([PR #17](https://github.com/krinolabs/krino/pull/17))
 > **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 

@@ -1,6 +1,6 @@
 # WP-11 · `krino init` + `krino doctor`
 
-> **Branch:** `wp-11-krino-init-krino-doctor`  |  **Status:** ☐ not started
+> **Branch:** `wp-11-krino-init-krino-doctor`  |  **Status:** ✅ merged ([PR #12](https://github.com/krinolabs/krino/pull/12))
 > **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 

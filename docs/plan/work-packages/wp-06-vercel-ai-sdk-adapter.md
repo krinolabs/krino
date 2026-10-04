@@ -2,7 +2,7 @@
 
 > **Implemented differently; see [ADR-020](../../adr/ADR-020-ai-sdk-active-tools-per-step.md).**
 
-> **Branch:** `wp-06-vercel-ai-sdk-adapter`  |  **Status:** ☐ not started
+> **Branch:** `wp-06-vercel-ai-sdk-adapter`  |  **Status:** ✅ merged ([PR #11](https://github.com/krinolabs/krino/pull/11))
 > **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 
