@@ -1,6 +1,6 @@
 {
   "name": "@krinolabs/krino",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Decision layer for AI agents: see, price, and safely cheapen the small decisions your agent makes. Early and experimental.",
   "keywords": [
     "ai",
