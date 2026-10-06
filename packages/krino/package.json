@@ -12,7 +12,7 @@
     "tool-calling",
     "prompt-caching"
   ],
-  "homepage": "https://github.com/krinolabs/krino#readme",
+  "homepage": "https://krino.sush.dev",
   "bugs": {
     "url": "https://github.com/krinolabs/krino/issues"
   },
