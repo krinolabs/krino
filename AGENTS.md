@@ -6,6 +6,7 @@
 
 ## Scope
 - Write only inside the paths your card "Owns". Read anything.
+- Never switch branches in the main checkout. Create a worktree for every branch.
 - Every WP may also write to `.changeset/` (add a changeset for user-visible changes).
 - Do not edit packages/krino/src/contracts/** after WP-01. Need a change? Stop and write
   "CONTRACT CHANGE REQUEST" with the reason in your PR description.

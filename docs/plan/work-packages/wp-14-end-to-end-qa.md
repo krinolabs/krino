@@ -1,6 +1,6 @@
 # WP-14 · End-to-end QA
 
-> **Branch:** `wp-14-end-to-end-qa`  |  **Status:** ☐ not started
+> **Branch:** `wp-14-end-to-end-qa`  |  **Status:** ✅ merged ([PR #16](https://github.com/krinolabs/krino/pull/16))
 > **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 

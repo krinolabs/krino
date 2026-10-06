@@ -1,6 +1,6 @@
 # WP-05 · Mock tool catalog + task set
 
-> **Branch:** `wp-05-mock-tool-catalog-task-set`  |  **Status:** ☐ not started
+> **Branch:** `wp-05-mock-tool-catalog-task-set`  |  **Status:** ✅ merged ([PR #8](https://github.com/krinolabs/krino/pull/8))
 > **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 

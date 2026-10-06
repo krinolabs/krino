@@ -1,6 +1,6 @@
 # WP-01 · Contracts
 
-> **Branch:** `wp-01-contracts`  |  **Status:** ☐ not started
+> **Branch:** `wp-01-contracts`  |  **Status:** ✅ merged ([PR #2](https://github.com/krinolabs/krino/pull/2))
 > **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 
