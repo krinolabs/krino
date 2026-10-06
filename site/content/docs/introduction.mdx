@@ -1,0 +1,46 @@
+Your agent makes many small decisions on every run. Which tools does the model need for this
+task? Is this tool call safe to run? Today the big model decides by default, and you pay for it
+in tokens.
+
+krino puts a small, cheap decision model next to your agent. It asks that model the same small
+questions, records the answers, and tells you what you would save by trusting them.
+
+## What krino does
+
+- **Watches.** In shadow mode, krino asks the decision model in the background and records its
+  answers. Your agent behaves exactly as before and waits for nothing.
+- **Prices.** `npx krino report` reads the traces and shows, per decision, how often krino
+  agreed with your agent and what it would save. Costs include prompt-cache reads and writes.
+- **Cheapens, safely.** When the data agrees, turn on enforce mode for tool selection. krino then
+  sends only the tools the task needs. If the decision model is slow or unsure, your agent gets
+  all its tools.
+
+## The two decisions in v0.1
+
+| Decision | The question | When unsure |
+|---|---|---|
+| Tool selection | Which of the agent's tools does this task need? | Send all tools (fails open) |
+| Risk gate | Is this tool call safe to run without asking a person? | Suggest asking a human (fails closed) |
+
+The risk gate runs in shadow mode only in v0.1: it records what it would do and never blocks a
+call.
+
+## Who it is for
+
+krino is for TypeScript agents built on the **Vercel AI SDK** or the **Claude Agent SDK**,
+especially agents with many tools, where tool definitions are a large part of every prompt.
+
+## What krino is not
+
+- **Not a proxy.** krino is a library that runs inside your process. Nothing sits between you
+  and your model provider.
+- **Not a model router.** Your agent keeps its model. krino only answers small questions about
+  tools.
+- **Not a hosted service.** Traces are files on your machine.
+
+## Read next
+
+1. [Install](/docs/install) krino and the CLI.
+2. Follow a quick start: [Vercel AI SDK](/docs/quick-start-ai-sdk) or
+   [Claude Agent SDK](/docs/quick-start-claude-agent-sdk).
+3. Learn the safe path to enforce mode: [Shadow, report, enforce](/docs/shadow-report-enforce).

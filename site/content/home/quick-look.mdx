@@ -1,0 +1,27 @@
+```ts
+import { createKrino, DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS } from "@krinolabs/krino";
+import { withKrino } from "@krinolabs/krino/ai-sdk";
+import { createJevAiGatewayProvider } from "@krinolabs/krino/providers/jev";
+import { generateText, stepCountIs, tool } from "ai";
+import { z } from "zod";
+
+const krino = createKrino({
+  projectName: "my-agent",
+  decisionModes: { toolSelection: "shadow", riskGate: "shadow" },
+  decisionProvider: createJevAiGatewayProvider(),
+});
+
+const tools = {
+  getWeather: tool({
+    description: "Gets the current weather for a city.",
+    inputSchema: z.object({ city: z.string() }),
+    execute: async ({ city }) => ({ city, forecast: "sunny" }),
+  }),
+};
+
+const result = await generateText(
+  withKrino({ model: "anthropic/claude-haiku-4.5", tools, prompt: "Weather in Paris?", stopWhen: stepCountIs(5) }, krino),
+);
+console.log(result.text);
+await krino.flushAll(DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS);
+```

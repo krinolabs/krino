@@ -1,0 +1,54 @@
+krino is a library inside your agent's process. An adapter connects it to your host SDK, asks a
+decision provider small questions, and writes what happened to a trace sink.
+
+## One run, step by step
+
+1. **Run start.** The adapter tells krino which tools the agent has.
+2. **Step 0.** krino asks the decision provider which tools the task needs. In shadow mode it
+   asks in the background and the step goes ahead with every tool. In enforce mode it waits up
+   to the timeout and sends only the selected tools.
+3. **Tool calls.** Before a tool runs, the risk gate asks whether the call is safe. In v0.1 it
+   records its suggestion and never blocks.
+4. **Every step.** krino records one trace line: the tools sent and called, token usage, cost,
+   and each decision with its status and latency.
+5. **Run end.** The adapter finishes the run. krino waits up to 2 s for decisions still in
+   flight, writes the rest as `cutOff`, and flushes the trace sink.
+
+## Failure rules
+
+Tool selection fails open. The risk gate fails closed. You cannot change either rule.
+
+| Situation | Tool selection | Risk gate | Status |
+|---|---|---|---|
+| Shadow mode | Send all tools; record the suggestion | Host behaves as before; record the suggestion | `answered` |
+| The provider times out | Send all tools | Suggest `askHuman` | `timedOut` |
+| The provider fails | Send all tools | Suggest `askHuman` | `failed` |
+| The answer is below the confidence bar | Send all tools | Suggest `askHuman` | `answered` |
+| The tool has no threshold | — | Suggest `askHuman` | `skippedUnsupported` |
+| An exploration sample (enforce) | Send all tools | — | `skippedExploration` |
+| The process exits before the answer | Nothing applied | Nothing applied | `cutOff` |
+
+The worst case for tool selection is the cost you pay today. The worst case for the risk gate is
+an extra question to a person.
+
+## Why tools change only at step 0
+
+Model providers cache the start of a prompt, and tool definitions sit at the very start. Change
+the tool list in the middle of a run and every later step pays to write the cache again. So
+krino picks tools once, before the first model call (AI SDK) or at run start (Claude Agent SDK),
+and keeps that list for the whole run.
+
+## Traces and redaction
+
+Traces are daily JSONL files on your machine. By default they hold no raw task text or messages;
+tool names stay. Set `redactContent: false` only when you need the text for debugging.
+
+## Costs include the cache
+
+Every cost krino computes counts uncached input, cache reads, and cache writes, each at its own
+price. The saving in the report is net: it subtracts what the decisions themselves cost.
+
+## Learn more
+
+- The full architecture: [docs/plan/architecture.md](https://github.com/krinolabs/krino/blob/main/docs/plan/architecture.md)
+- One record per design decision: [docs/adr](https://github.com/krinolabs/krino/tree/main/docs/adr)

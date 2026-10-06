@@ -1,0 +1,99 @@
+`createKrino(config)` checks the config and throws `KrinoConfigurationError` on a bad value. Every
+default lives in the exported `KRINO_CONFIG_DEFAULTS`.
+
+## Options
+
+| Field | Default | What it does |
+|---|---|---|
+| `projectName` | required | Names the trace folder and the project in reports. |
+| `decisionModes` | every decision `shadow` | The mode for `toolSelection` and `riskGate`. |
+| `minimumConfidence` | `0.8` | Tool selection only: below this probability, send all tools. |
+| `decisionTimeoutInMilliseconds` | `800` | How long enforce mode waits for an answer. |
+| `explorationRate` | `0.05` | Enforce only: the share of runs that skip enforcement to keep comparison data. |
+| `riskGatePolicy` | none | Block list, allow list, and per-tool thresholds (below). |
+| `decisionProvider` | the fake provider, with a warning | Who answers the questions. |
+| `traceSink` | the file sink | Where traces go. |
+| `redactContent` | `true` | Keeps raw task text and messages out of traces. |
+| `priceOverrides` | none | Your own `ModelPrice` rows. They replace table rows for the same model. |
+
+## Decision modes
+
+Set a mode per decision in `decisionModes`.
+
+| Mode | What krino does |
+|---|---|
+| `off` | Does not ask. |
+| `shadow` | Asks in the background and records the answer. Your agent waits for nothing. |
+| `enforce` | Waits for the answer, up to `decisionTimeoutInMilliseconds`, and applies it. |
+
+In v0.1, the risk gate runs in shadow mode only.
+
+## Risk gate policy
+
+```ts
+import { createKrino, type RiskGatePolicy, thresholdFromCosts } from "@krinolabs/krino";
+
+const riskGatePolicy: RiskGatePolicy = {
+  blockedToolNames: ["dropDatabase"],
+  alwaysAllowedToolNames: ["searchLogs"],
+  // Example costs: asking a person costs $0.50, a bad call costs $50.
+  allowThresholdByToolName: {
+    restartService: thresholdFromCosts({ costOfAskingInUsd: 0.5, costOfBadCallInUsd: 50 }),
+  },
+};
+
+const krino = createKrino({
+  projectName: "my-agent",
+  decisionModes: { riskGate: "shadow" },
+  riskGatePolicy,
+});
+```
+
+- A blocked tool is always `block`. An always-allowed tool is always `allow`. Your lists win over
+  the model.
+- For any other tool, krino asks whether the call is safe and suggests `allow` only when the
+  probability reaches that tool's threshold. Otherwise it suggests `askHuman`.
+- A tool with no threshold gets `askHuman`, with status `skippedUnsupported`.
+- `thresholdFromCosts` returns `1 - costOfAsking / costOfBadCall`, clamped to 0 to 1. With the
+  example costs above, that is 0.99.
+
+## Decision providers
+
+- **Jev** (`createJevAiGatewayProvider()` from `@krinolabs/krino/providers/jev`) asks Jev through
+  Vercel AI Gateway. It reads `AI_GATEWAY_API_KEY` from the environment, sends all questions for
+  a step in one request, and cancels it on timeout.
+- **Fake** (`createFakeDecisionProvider()` from the root entry) answers offline, from a script.
+  Use it in tests. It is the default when you pass no provider, and krino prints a warning.
+
+## Traces
+
+The default file sink writes one JSON object per line to `traces-YYYY-MM-DD.jsonl` (UTC day) and
+starts a new file at 50 MB. A write failure is logged once to stderr; it never throws into your
+agent. The trace folder is, in order:
+
+1. `$KRINO_TRACE_DIRECTORY`
+2. `$XDG_STATE_HOME/krino/traces/<project>`, when `XDG_STATE_HOME` is an absolute path
+3. `~/.krino/traces/<project>`
+
+To pick your own folder, pass a file sink:
+
+```ts
+import { createFileTraceSink, createKrino } from "@krinolabs/krino";
+
+const krino = createKrino({
+  projectName: "my-agent",
+  decisionModes: { toolSelection: "shadow" },
+  traceSink: createFileTraceSink({ projectName: "my-agent", traceDirectory: "/var/log/krino" }),
+});
+```
+
+Shadow decisions finish in the background. In a short process, call
+`await krino.flushAll(DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS)` before you exit. It waits up to
+2 s. Decisions still open are written with status `cutOff`.
+
+## Prices
+
+`costFromUsage(tokenUsage, modelPrice)` prices a step and always counts cache read and cache
+write tokens. `DEFAULT_MODEL_PRICES` holds dated prices for Claude Opus 5.5, Sonnet 5.5, Haiku
+4.5, and Jev. Every row has a `verifiedOn` date, and reports show it. Prices change: use
+`priceOverrides` for your own rates.
