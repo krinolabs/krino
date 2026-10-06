@@ -1,7 +1,7 @@
 {
   "name": "@krinolabs/docs",
   "version": "0.0.0",
-  "description": "krino docs checks: compiles every TypeScript code block in the READMEs. Not published.",
+  "description": "krino docs checks: compiles every TypeScript code block in the READMEs and the website's MDX pages. Not published.",
   "private": true,
   "type": "module",
   "engines": {
