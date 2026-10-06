@@ -1,0 +1,49 @@
+The benchmark asks one question: does choosing tools once at step 0 make an agent cheaper without
+losing the tools it needs?
+
+> **Numbers pending.** The live benchmark run has not been published yet. This page describes the
+> method; results will appear here when they exist.
+
+## Three setups
+
+Every run is the same log-triage agent on the Vercel AI SDK, on the same tasks.
+
+| Setup | What it does |
+|---|---|
+| `baseline` | No routing: every tool on every step. |
+| `per-step` | Prunes the tool list before every step. Bench-only code that shows the prompt-cache trap krino avoids. |
+| `step-zero` | krino enforce mode: tools chosen once at step 0 and kept for the run. |
+
+Each setup runs with 10, 25, 50, or 100 tools. The task's expected tools are always included.
+The risk gate runs in shadow mode in every setup.
+
+## What it measures
+
+- **Selection recall (primary):** every expected tool was offered on the step it was needed.
+- **Step-0 recall:** every expected tool was in the step-0 set.
+- **Total cost per step:** the main model plus every decision, with uncached, cache-read, and
+  cache-write tokens. Setups are compared on this number.
+- **Cache read share,** for all runs and for multi-step runs.
+- **Latency:** agent step and decision, p50 and p95.
+- **Timeout rate:** selections that timed out and so sent all tools.
+
+## Honest by design
+
+- A **spend guard** estimates every planned run before starting and refuses to run over the
+  limit.
+- **Fake mode** runs with no key and no network. Its output starts with
+  `SIMULATED — not real measurements.` and is never used as evidence.
+- Failed runs are counted, not scored. A rate with nothing to measure is reported as empty,
+  never as 0.
+
+## Run it yourself
+
+The benchmark runs from the repository, not from the published CLI:
+
+```sh
+pnpm turbo run build --filter=@krinolabs/bench-runner...
+pnpm --filter @krinolabs/bench-runner exec krino-bench --fake --pilot
+```
+
+The full method, options, and output format are in
+[bench-runner/README.md](https://github.com/krinolabs/krino/blob/main/bench-runner/README.md).

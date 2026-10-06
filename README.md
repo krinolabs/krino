@@ -5,6 +5,8 @@
 krino is a TypeScript decision layer that watches, prices, and safely cheapens the small
 decisions your AI agent makes.
 
+**Website and docs:** [krino.sush.dev](https://krino.sush.dev)
+
 **Status: experimental.** v0.1 works with the Vercel AI SDK and the Claude Agent SDK. APIs may
 change in any release.
 

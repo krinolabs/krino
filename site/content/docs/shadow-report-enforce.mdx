@@ -1,0 +1,79 @@
+krino never asks you to trust it up front. Every decision starts in shadow mode, the report
+shows you the evidence, and you turn on enforce mode only when that evidence is good.
+
+<Steps>
+
+## Run in shadow mode
+
+Shadow is the default for every decision. krino asks the decision model in the background, adds
+no wait to your agent's steps, and changes nothing. It writes one JSON line per step to a local
+trace folder.
+
+```ts
+import { createKrino } from "@krinolabs/krino";
+
+const krino = createKrino({
+  projectName: "my-agent",
+  decisionModes: { toolSelection: "shadow", riskGate: "shadow" },
+});
+```
+
+Run your agent on its usual work. In a short-lived process, call
+`await krino.flushAll(DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS)` before you exit, as the quick starts
+do. Decisions still open after that wait are recorded as `cutOff`.
+
+## Read the report
+
+```sh
+npx krino report
+```
+
+The report shows one block per decision and mode, for example `Tool selection · shadow`:
+
+| Line | What it tells you |
+|---|---|
+| Calls | How many decisions krino asked for, by status. |
+| Agreement | How often krino's tool set covered what your agent actually used. Per step on the AI SDK, per run on the Claude Agent SDK. |
+| Saved if enforced | The estimated saving, with cache reads, cache writes, and the decisions' own cost included. |
+| Added latency | What your agent waited. Always 0 ms in shadow mode. |
+
+Below the blocks are cache health (for all runs and for multi-step runs), the cut-off count, and
+one "next step" line.
+
+## Check the bar for enforce
+
+The report's next-step line suggests enforce mode for tool selection only when all of these hold:
+
+- At least **20 compared samples** per host.
+- Agreement of **90% or more** on every host it judged.
+- A **positive** estimated net saving.
+
+Before that, look at two health checks. More than **5%** of decisions cut off means your process
+exits before krino can answer: flush before exit. A cache read share below **50%** on multi-step
+runs means prompt caching is probably off or broken.
+
+## Enforce tool selection
+
+Set tool selection to `enforce`. Keep the risk gate in `shadow`: in v0.1, `createKrino` rejects
+`riskGate: "enforce"`.
+
+```ts
+import { createKrino } from "@krinolabs/krino";
+
+const krino = createKrino({
+  projectName: "my-agent",
+  decisionModes: { toolSelection: "enforce", riskGate: "shadow" },
+});
+```
+
+In enforce mode, krino waits up to `decisionTimeoutInMilliseconds` (800 ms by default) and then
+sends only the selected tools, once, at step 0. If the decision model is slow, fails, or is less
+confident than `minimumConfidence` (0.8), your agent gets all its tools.
+
+## Keep watching
+
+Keep running `npx krino report`. In enforce mode, 5% of runs (`explorationRate`) skip
+enforcement and send all tools, so agreement stays measurable. Enforced runs see only the
+suggested tools, so the report compares exploration runs only.
+
+</Steps>

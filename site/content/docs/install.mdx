@@ -1,0 +1,53 @@
+## Requirements
+
+- **Node 22 or later.** krino is ESM only.
+- **Node 22.18 or later** to run a `.ts` file directly, as the quick starts do. On Node 22.6 to
+  22.17, run `node --experimental-strip-types agent.ts` instead.
+- A host SDK: the Vercel AI SDK or the Claude Agent SDK.
+
+<Steps>
+
+## Install krino and the CLI
+
+The library goes in your dependencies. The CLI reads traces, so it is a dev dependency.
+
+```sh
+npm i @krinolabs/krino
+npm i -D @krinolabs/cli
+```
+
+The CLI ships DuckDB's native binary to read traces. That binary never enters your app: the
+library is a separate package.
+
+## Add your host SDK
+
+The host SDKs are optional peer dependencies. Install only the one you use. The Jev decision
+provider needs `ai` and `zod` on both hosts.
+
+| Host | Install | Tested with |
+|---|---|---|
+| Vercel AI SDK | `npm i ai zod` | `ai` 7.0.126 (supported range `>=7.0.111 <8`) |
+| Claude Agent SDK | `npm i @anthropic-ai/claude-agent-sdk ai zod` | `@anthropic-ai/claude-agent-sdk` 0.3.286 |
+
+## Check your setup
+
+```sh
+npx krino doctor
+```
+
+You should see one line per check: Node version, host SDK versions, your API key, the trace
+folder, and recent traces. Every warning comes with a fix line. A check with nothing to check yet
+shows `SKIP`.
+
+</Steps>
+
+## Entry points
+
+| Import | What it holds | Needs |
+|---|---|---|
+| `@krinolabs/krino` | `createKrino`, the fake provider, the file trace sink, prices, and all types | nothing |
+| `@krinolabs/krino/ai-sdk` | `withKrino` | `ai` |
+| `@krinolabs/krino/claude-agent-sdk` | `krinoAgentOptions`, `observeKrinoMessages` | `@anthropic-ai/claude-agent-sdk` |
+| `@krinolabs/krino/providers/jev` | `createJevAiGatewayProvider` | `ai`, `zod` |
+
+The root entry never imports a host SDK or `ai`.

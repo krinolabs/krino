@@ -1,0 +1,103 @@
+You will build a one-tool agent, run it with krino in shadow mode, and read the report. Shadow
+mode changes nothing about how the agent behaves.
+
+**You need:** Node 22.18 or later, and an `AI_GATEWAY_API_KEY`. Both the agent model and the Jev
+decision provider go through Vercel AI Gateway.
+
+<Steps>
+
+## Create a project
+
+```sh
+mkdir my-agent && cd my-agent
+npm init -y && npm pkg set type=module
+```
+
+## Install the packages
+
+```sh
+npm i @krinolabs/krino @krinolabs/cli ai zod
+```
+
+## Save the agent
+
+Save this as `agent.ts`:
+
+```ts
+import { createKrino, DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS } from "@krinolabs/krino";
+import { withKrino } from "@krinolabs/krino/ai-sdk";
+import { createJevAiGatewayProvider } from "@krinolabs/krino/providers/jev";
+import { generateText, stepCountIs, tool } from "ai";
+import { z } from "zod";
+
+const krino = createKrino({
+  projectName: "my-agent",
+  decisionModes: { toolSelection: "shadow", riskGate: "shadow" },
+  decisionProvider: createJevAiGatewayProvider(),
+});
+
+const tools = {
+  getWeather: tool({
+    description: "Gets the current weather for a city.",
+    inputSchema: z.object({ city: z.string() }),
+    execute: async ({ city }) => ({ city, forecast: "sunny" }),
+  }),
+};
+
+try {
+  const result = await generateText(
+    withKrino(
+      { model: "anthropic/claude-haiku-4.5", tools, prompt: "Weather in Paris?", stopWhen: stepCountIs(5) },
+      krino,
+    ),
+  );
+  console.log(result.text);
+} finally {
+  // Runs on errors too, so the traces reach disk before the process exits.
+  await krino.flushAll(DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS);
+}
+```
+
+`withKrino` wraps the options of one `generateText` or `streamText` call. Your own
+`prepareStep` and callbacks keep running.
+
+## Set your key
+
+```sh
+export AI_GATEWAY_API_KEY=...   # never commit it
+```
+
+On Windows PowerShell, use `$env:AI_GATEWAY_API_KEY="..."`.
+
+## Run the agent
+
+```sh
+node agent.ts
+```
+
+You should see the model's answer about the weather in Paris. krino also prints one line to
+stderr: it is using the default trace sink, which writes files to `~/.krino/traces/my-agent`.
+
+## Read the report
+
+```sh
+npx krino report
+```
+
+You should see one block per decision with the number of calls, the agreement with what your
+agent did, the estimated saving if enforced, and the latency krino added (0 ms in shadow mode).
+The last line suggests a next step. After one run, it asks for more data: agreement needs at
+least 20 compared samples.
+
+</Steps>
+
+## No AI Gateway key yet?
+
+Remove the `decisionProvider` line. krino falls back to the fake provider and prints a warning.
+The fake provider's suggestions are placeholders, but the whole flow, traces and report included,
+still works.
+
+## Next
+
+Run your agent on real tasks in shadow mode, then follow
+[Shadow, report, enforce](/docs/shadow-report-enforce) to decide when to turn enforce mode on.

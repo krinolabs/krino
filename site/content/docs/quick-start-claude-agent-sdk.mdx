@@ -1,0 +1,96 @@
+You will run a small Claude Agent SDK agent with krino in shadow mode and read the report. Shadow
+mode changes nothing about how the agent behaves.
+
+**You need:** Node 22.18 or later, an `ANTHROPIC_API_KEY` for the agent, and an
+`AI_GATEWAY_API_KEY` for the Jev decision provider.
+
+<Steps>
+
+## Create a project
+
+```sh
+mkdir my-agent && cd my-agent
+npm init -y && npm pkg set type=module
+```
+
+## Install the packages
+
+The Jev provider needs `ai` and `zod`, even on this host.
+
+```sh
+npm i @krinolabs/krino @krinolabs/cli @anthropic-ai/claude-agent-sdk ai zod
+```
+
+## Save the agent
+
+Save this as `agent.ts`:
+
+```ts
+import { query } from "@anthropic-ai/claude-agent-sdk";
+import { createKrino } from "@krinolabs/krino";
+import { krinoAgentOptions, observeKrinoMessages } from "@krinolabs/krino/claude-agent-sdk";
+import { createJevAiGatewayProvider } from "@krinolabs/krino/providers/jev";
+
+const krino = createKrino({
+  projectName: "my-agent",
+  decisionModes: { toolSelection: "shadow", riskGate: "shadow" },
+  decisionProvider: createJevAiGatewayProvider(),
+});
+
+const prompt = "Which files in this folder mention TODO?";
+const krinoRun = await krinoAgentOptions({ allowedTools: ["Read", "Grep", "Glob"] }, krino, prompt, {
+  toolDescriptions: [
+    { toolName: "Read", toolDescription: "Reads a file from disk." },
+    { toolName: "Grep", toolDescription: "Searches file contents with a regular expression." },
+    { toolName: "Glob", toolDescription: "Finds files whose names match a pattern." },
+  ],
+});
+
+for await (const message of observeKrinoMessages(query({ prompt, options: krinoRun.queryOptions }), krinoRun)) {
+  if (message.type === "result" && message.subtype === "success") console.log(message.result);
+}
+```
+
+- `krinoAgentOptions` decides tool selection once, at run start. Without `toolDescriptions`,
+  krino skips tool selection and warns once.
+- `observeKrinoMessages` passes every message through. When the stream ends, it records usage
+  and cost, and waits up to 2 s for pending decisions so traces survive an immediate exit.
+
+## Set your keys
+
+```sh
+export ANTHROPIC_API_KEY=... AI_GATEWAY_API_KEY=...   # never commit them
+```
+
+On Windows PowerShell, set each one with `$env:NAME="..."`.
+
+## Run the agent
+
+```sh
+node agent.ts
+```
+
+You should see the agent's answer: the files that mention TODO. krino also prints one line to
+stderr: it is using the default trace sink, which writes files to `~/.krino/traces/my-agent`.
+
+## Read the report
+
+```sh
+npx krino report
+```
+
+You should see one block per decision with the number of calls, agreement, the estimated saving
+if enforced, and the added latency. On this host, agreement is measured per run, not per step,
+and the report says so.
+
+</Steps>
+
+## No AI Gateway key yet?
+
+Remove the `decisionProvider` line. krino falls back to the fake provider and prints a warning.
+Its suggestions are placeholders, but traces and the report still work.
+
+## Next
+
+Run your agent on real tasks in shadow mode, then follow
+[Shadow, report, enforce](/docs/shadow-report-enforce).

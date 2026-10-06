@@ -1,0 +1,11 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": ["NEXT_PUBLIC_SITE_URL", "NEXT_PUBLIC_GA_MEASUREMENT_ID", "VERCEL_ENV"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/*/CHANGELOG.md"]
+    }
+  }
+}

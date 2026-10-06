@@ -1,9 +1,10 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import nodePath from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
-// Compiles every TypeScript code block in the READMEs, as a user with a strict tsconfig would.
+// Compiles every TypeScript code block in the READMEs and the website's MDX pages, as a user with
+// a strict tsconfig would.
 // Each block is its own module, resolved from this package, which installs the published entry
 // points of @krinolabs/krino and the host SDKs at the versions krino is tested with.
 
@@ -27,6 +28,20 @@ export const README_PATHS: ReadonlyArray<string> = [
   "packages/krino/README.md",
   "packages/cli/README.md",
 ];
+
+/** The website's MDX pages (site/content); their TypeScript blocks must compile too. */
+export const SITE_CONTENT_DIRECTORY = "site/content";
+
+/** Repo-relative paths of every MDX file under site/content, sorted, with forward slashes. */
+export function listSiteContentPaths(): Array<string> {
+  return readdirSync(nodePath.join(REPOSITORY_DIRECTORY, SITE_CONTENT_DIRECTORY), {
+    recursive: true,
+    encoding: "utf8",
+  })
+    .filter((relativePath) => relativePath.endsWith(".mdx"))
+    .map((relativePath) => toForwardSlashes(`${SITE_CONTENT_DIRECTORY}/${relativePath}`))
+    .sort();
+}
 
 const OPENING_FENCE_PATTERN = /^(\s*)(`{3,}|~{3,})\s*([\w-]*)/;
 const TYPESCRIPT_LANGUAGES: ReadonlySet<string> = new Set(["ts", "typescript"]);
@@ -67,9 +82,9 @@ export function extractTypeScriptBlocks(
   return codeBlocks;
 }
 
-/** Reads the READMEs and returns their TypeScript blocks. */
+/** Reads the READMEs and the site's MDX pages and returns their TypeScript blocks. */
 export function readReadmeBlocks(): Array<CodeBlock> {
-  return README_PATHS.flatMap((readmePath) =>
+  return [...README_PATHS, ...listSiteContentPaths()].flatMap((readmePath) =>
     extractTypeScriptBlocks(
       readFileSync(nodePath.join(REPOSITORY_DIRECTORY, readmePath), "utf8"),
       readmePath,

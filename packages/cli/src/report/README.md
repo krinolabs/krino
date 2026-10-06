@@ -1,16 +1,19 @@
 # `krino report`
 
 ```
-krino report [--project <name>] [--since 7d] [--trace-dir <folder>] [--json]
+krino report [--project <name>] [--since 7d] [--trace-dir <folder>] [--tokens-per-tool 175] [--json]
 ```
 
 - `--project`: report on one project. Default: every project.
 - `--since`: a duration back from now (`12h`, `7d`, `2w`) or an ISO date or time
   (`2026-09-01`, `2026-09-01T08:00:00Z`). Default `7d`.
 - `--trace-dir`: the folder with the trace files. Wins over `$KRINO_TRACE_DIRECTORY`.
+- `--tokens-per-tool`: prompt tokens per tool definition, used for the estimated saving. Default
+  `175`, an estimate, not a measurement.
 - `--json`: print the report as JSON (shape below) instead of text.
 
-Exit code: 0 on success, 1 on a bad `--since` or when the trace files cannot be read.
+Exit code: 0 on success, 1 on a bad `--since` or `--tokens-per-tool`, or when the trace files
+cannot be read.
 
 ## Where it reads
 
@@ -57,8 +60,8 @@ Every non-blank line is checked. A line is skipped and counted when it:
   and cache-write input, priced with the main model's price table row (cache multipliers
   included). Runs whose host reports usage per run only use the run summary: removed tokens ×
   `stepCount`, at the run's mix. The net saving subtracts what the decisions cost. Traces do not
-  record tool-definition sizes, so `tokensPerToolDefinition` (150) is an assumption, shown in
-  every report.
+  record tool-definition sizes, so `tokensPerToolDefinition` (175 by default; `--tokens-per-tool`
+  changes it) is an assumption, shown in every report.
 - **Added latency**: what the agent waited. Only enforce-mode tool selection is awaited in
   v0.1; shadow calls, exploration calls and every risk-gate call add 0 ms.
 - **Decision latency**: how long the provider took (`latencyInMilliseconds`).

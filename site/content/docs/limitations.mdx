@@ -1,0 +1,23 @@
+krino v0.1 is experimental. These are the limits you should know before you use it.
+
+- **TypeScript only.** Agents in Python or Go cannot use krino today. The trace format is
+  language-neutral, so a port could reuse the CLI.
+- **Claude Agent SDK: run-start selection only.** The SDK gives hooks, not the loop. krino picks
+  tools once per run, and its agreement metric is per run, not per step.
+- **Step-0 selection only.** Tasks that need a new tool later in the run get no saving. This is
+  the price of keeping the prompt cache intact.
+- **The risk gate is shadow-only.** It records what it would do. It never blocks a call.
+- **Local JSONL files do not suit serverless.** Traces live on one machine's disk, with no
+  cross-machine view.
+- **Shadow decisions cost a little.** You pay for decisions you do not use yet. The report shows
+  that spend.
+- **Short processes can cut decisions off.** A process that exits before krino gets an answer
+  records the decision as `cutOff`. Call `flushAll` before exit.
+- **One real decision provider.** Jev is the only real provider in v0.1. Its price, API, or
+  availability can change.
+- **Token budgets are estimated.** krino counts tokens as characters ÷ 4, with a 10% margin, so
+  context trimming is approximate.
+- **APIs may change** in any release.
+
+The full list, with what each one costs and when to revisit it, is in "Known trade-offs" in the
+[architecture document](https://github.com/krinolabs/krino/blob/main/docs/plan/architecture.md).

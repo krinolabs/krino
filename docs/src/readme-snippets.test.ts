@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   compileCodeBlocks,
   extractTypeScriptBlocks,
+  listSiteContentPaths,
   README_PATHS,
   readReadmeBlocks,
 } from "./readme-snippets.js";
@@ -86,6 +87,16 @@ describe("README code blocks", () => {
 
     expect(blockCountByPath.get("README.md")).toBeGreaterThanOrEqual(2);
     expect(blockCountByPath.get("packages/krino/README.md")).toBeGreaterThanOrEqual(2);
+  });
+
+  it("includes the website's MDX pages and their quick starts", () => {
+    const siteContentPaths = listSiteContentPaths();
+    expect(siteContentPaths).toContain("site/content/docs/quick-start-ai-sdk.mdx");
+    expect(siteContentPaths).toContain("site/content/docs/quick-start-claude-agent-sdk.mdx");
+    const blockSourcePaths = new Set(readmeBlocks.map((codeBlock) => codeBlock.sourcePath));
+    expect(blockSourcePaths.has("site/content/docs/quick-start-ai-sdk.mdx")).toBe(true);
+    expect(blockSourcePaths.has("site/content/docs/quick-start-claude-agent-sdk.mdx")).toBe(true);
+    expect(blockSourcePaths.has("site/content/home/quick-look.mdx")).toBe(true);
   });
 
   it("compiles every TypeScript block against the built packages", () => {

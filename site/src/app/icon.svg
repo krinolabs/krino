@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>krino</title>
+  <rect width="32" height="32" rx="7" fill="#0b0f14"/>
+  <g fill="#5ac4e6">
+    <rect x="9" y="5" width="3" height="21"/>
+    <rect x="18" y="11" width="3" height="3"/>
+    <rect x="15" y="14" width="3" height="3"/>
+    <rect x="12" y="17" width="3" height="3"/>
+    <rect x="15" y="20" width="3" height="3"/>
+    <rect x="18" y="23" width="3" height="3"/>
+  </g>
+</svg>
