@@ -28,10 +28,13 @@ pull request before step 11.
 - [ ] **9. Remove `"private": true` from `@krinolabs/cli`** (`packages/cli/package.json`).
 - [ ] **10. Publish `@krinolabs/cli` once by hand**, so the package exists on npm. From
       `packages/cli` after a build: `pnpm publish --access public`. Use `pnpm`, not `npm`: it
-      turns `workspace:^` into a real version range. Provenance works only in CI, and
-      `publishConfig.provenance` is `true`; if the publish refuses for that reason, turn
-      provenance off for this one publish only, and do not commit that change. Check the
-      tarball first with `pnpm publish --dry-run`. Then deprecate the placeholder:
+      turns `workspace:^` into a real version range. pnpm publishes only from `main` with a
+      clean working tree (otherwise `ERR_PNPM_GIT_NOT_CORRECT_BRANCH`). Provenance works only
+      in CI, and `publishConfig.provenance` is `true`; if the publish refuses for that reason,
+      turn provenance off for this one publish only, and do not commit that change. That edit
+      makes the tree dirty, so add `--no-git-checks` to that one publish. Check the tarball
+      first with `pnpm pack --dry-run` (it lists the files; pnpm 12's `pnpm publish --dry-run`
+      does not). Then deprecate the placeholder:
       `npm deprecate @krinolabs/cli@0.0.0 "placeholder, use >=0.1.0"`.
 - [ ] **11. Add the npm trusted publisher for `@krinolabs/cli`:** repository `krinolabs/krino`,
       workflow `release.yml`. Check that `@krinolabs/krino` has the same trusted publisher.
