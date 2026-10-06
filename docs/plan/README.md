@@ -99,3 +99,4 @@ flowchart LR
 | ☑ | [WP-12](./work-packages/wp-12-examples.md) | Examples |
 | ☑ | [WP-13](./work-packages/wp-13-docs-release.md) | Docs + release |
 | ☑ | [WP-14](./work-packages/wp-14-end-to-end-qa.md) | End-to-end QA |
+| ☐ | [WP-15](./work-packages/wp-15-site.md) | Website + docs (krino.sush.dev) |
