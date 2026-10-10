@@ -17,7 +17,7 @@ describe("readTraceAggregates", () => {
       filters,
       async (filePath) => {
         readPaths.push(filePath);
-        return 'not json\n{"traceSchemaVersion":2}\r\n';
+        return 'not json\n{"traceSchemaVersion":3}\r\n';
       },
     );
     expect(readPaths).toEqual(["/any [folder]/traces-2026-10-01.jsonl"]);

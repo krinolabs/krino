@@ -10,7 +10,7 @@ import type {
   ToolDescription,
   TraceSink,
 } from "../contracts/index.js";
-import { KrinoConfigurationError } from "../contracts/index.js";
+import { KrinoConfigurationError, TRACE_SCHEMA_VERSION } from "../contracts/index.js";
 import { buildRiskQuestion } from "../risk-gate/index.js";
 import { countSentCharacters } from "./context-budget.js";
 import { createKrino, createKrinoRuntime, type RuntimeDependencies } from "./create-krino.js";
@@ -984,7 +984,7 @@ describe("recordStep and finishRun", () => {
 
     expect(traceSink.writtenRecords).toEqual([
       expect.objectContaining({
-        traceSchemaVersion: 1,
+        traceSchemaVersion: TRACE_SCHEMA_VERSION,
         recordType: "agentStep",
         projectName: "test-project",
         recordedAt: START_TIME.toISOString(),
@@ -992,7 +992,7 @@ describe("recordStep and finishRun", () => {
         costInUsd: 0.5,
       }),
       expect.objectContaining({
-        traceSchemaVersion: 1,
+        traceSchemaVersion: TRACE_SCHEMA_VERSION,
         recordType: "runSummary",
         projectName: "test-project",
         recordedAt: START_TIME.toISOString(),

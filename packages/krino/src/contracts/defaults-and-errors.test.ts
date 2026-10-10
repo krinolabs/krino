@@ -9,13 +9,14 @@ import {
   DecisionTimeoutError,
   KRINO_CONFIG_DEFAULTS,
   KrinoConfigurationError,
+  SUPPORTED_TRACE_SCHEMA_VERSIONS,
   TRACE_SCHEMA_VERSION,
 } from "./index.js";
 
 describe("KRINO_CONFIG_DEFAULTS", () => {
   it("matches the defaults written in 03-contracts.md", () => {
     expect(KRINO_CONFIG_DEFAULTS).toEqual({
-      decisionModes: { toolSelection: "shadow", riskGate: "shadow" },
+      decisionModes: { toolSelection: "shadow", riskGate: "shadow", modelRouting: "shadow" },
       minimumConfidence: 0.8,
       decisionTimeoutInMilliseconds: 800,
       explorationRate: 0.05,
@@ -56,8 +57,19 @@ describe("runtime limit defaults", () => {
 });
 
 describe("TRACE_SCHEMA_VERSION", () => {
-  it("is 1", () => {
-    expect(TRACE_SCHEMA_VERSION).toBe(1);
+  it("is 2", () => {
+    expect(TRACE_SCHEMA_VERSION).toBe(2);
+  });
+});
+
+describe("SUPPORTED_TRACE_SCHEMA_VERSIONS", () => {
+  it("accepts version 1 traces and the version krino writes", () => {
+    expect(SUPPORTED_TRACE_SCHEMA_VERSIONS).toEqual([1, 2]);
+    expect(SUPPORTED_TRACE_SCHEMA_VERSIONS).toContain(TRACE_SCHEMA_VERSION);
+  });
+
+  it("is frozen", () => {
+    expect(Object.isFrozen(SUPPORTED_TRACE_SCHEMA_VERSIONS)).toBe(true);
   });
 });
 

@@ -89,6 +89,8 @@ export function runSummaryRecord(recordFields: Partial<RunSummaryTrace> = {}): R
     stepCount: 1,
     usedToolNames: ["search"],
     toolSelectionAgreement: null,
+    routingCounterfactualCostInUsd: null,
+    runOutcome: null,
     recordedAt: "2026-10-02T09:00:01.000Z",
     ...recordFields,
   };

@@ -8,9 +8,16 @@ export type KrinoConfigDefaults = {
   redactContent: boolean;
 };
 
-/** Values `createKrino` uses when a `KrinoConfig` field is missing. */
+/**
+ * Values `createKrino` uses when a `KrinoConfig` field is missing. Every decision kind defaults
+ * to shadow; model routing does nothing without a `modelRoutingPolicy`.
+ */
 export const KRINO_CONFIG_DEFAULTS: Readonly<KrinoConfigDefaults> = Object.freeze({
-  decisionModes: Object.freeze({ toolSelection: "shadow", riskGate: "shadow" }),
+  decisionModes: Object.freeze({
+    toolSelection: "shadow",
+    riskGate: "shadow",
+    modelRouting: "shadow",
+  }),
   minimumConfidence: 0.8,
   decisionTimeoutInMilliseconds: 800,
   explorationRate: 0.05,

@@ -43,24 +43,31 @@ import {
   type KrinoConfigDefaults,
   KrinoConfigurationError,
   type KrinoRuntime,
+  type ModelCandidate,
   type ModelPrice,
+  type ModelRouteContext,
+  type ModelRouteOutcome,
+  type ModelRoutingPolicy,
   type PendingToolCall,
   type RiskCosts,
   type RiskGateOutcome,
   type RiskGatePolicy,
   type RiskGateVerdict,
   type RunHandle,
+  type RunOutcome,
   type RunStartOptions,
   type RunSummaryInput,
   type RunSummaryTrace,
   resolveTraceDirectory,
   type StepContext,
   type StepTraceInput,
+  SUPPORTED_TRACE_SCHEMA_VERSIONS,
   type TokenUsageRecord,
   type ToolDescription,
   type ToolSelectionOutcome,
   type ToolSelectionTiming,
   TRACE_SCHEMA_VERSION,
+  type TraceSchemaVersion,
   type TraceSink,
   thresholdFromCosts,
   type UnscriptedQuestionRule,
@@ -135,6 +142,23 @@ const decisionQuestion: DecisionQuestion = {
   questionText: 'Does the agent need the tool "searchLogs"?',
   options: null,
 };
+const modelCandidates: Array<ModelCandidate> = [
+  { modelIdentifier: "claude-sonnet-5-5", useWhen: "Hard debugging or design work." },
+  { modelIdentifier: "claude-haiku-4-5", useWhen: "Questions and small edits." },
+];
+const modelRoutingPolicy: ModelRoutingPolicy = {
+  candidateModels: modelCandidates,
+  fallbackModelIdentifier: "claude-sonnet-5-5",
+};
+const modelRouteContext: ModelRouteContext = {
+  stepContext,
+  hostModelIdentifier: modelRoutingPolicy.fallbackModelIdentifier,
+  availableCandidateIdentifiers: modelCandidates.map((candidate) => candidate.modelIdentifier),
+  canApplyRoute: true,
+};
+const runOutcome: RunOutcome = "completed";
+const supportedTraceSchemaVersions: ReadonlyArray<TraceSchemaVersion> =
+  SUPPORTED_TRACE_SCHEMA_VERSIONS;
 const decisionAnswer: DecisionAnswer = {
   choice: "yes",
   probability: 0.9,
@@ -193,9 +217,12 @@ const runSummaryInput: RunSummaryInput = {
   stepCount: 1,
   usedToolNames: [],
   toolSelectionAgreement: null,
+  runOutcome,
 };
 const runSummaryTrace: RunSummaryTrace = {
   ...runSummaryInput,
+  routingCounterfactualCostInUsd: null,
+  runOutcome,
   traceSchemaVersion: TRACE_SCHEMA_VERSION,
   recordType: "runSummary",
   projectName: "e2e",
@@ -260,11 +287,13 @@ const runStartOptions: RunStartOptions = { hostName, hostSdkVersion: "7.0.126", 
 
 export async function exerciseRuntime(): Promise<{
   toolSelection: ToolSelectionOutcome;
+  modelRoute: ModelRouteOutcome;
   riskGate: RiskGateOutcome;
   verdict: RiskGateVerdict | null;
 }> {
   const runHandle: RunHandle = krinoRuntime.startRun(runStartOptions);
   const toolSelection = await runHandle.decideToolSelection(stepContext);
+  const modelRoute = await runHandle.decideModelRoute(modelRouteContext);
   const riskGate = await runHandle.checkToolCallRisk(pendingToolCall);
   runHandle.recordStep(stepTraceInput);
   await runHandle.finishRun(runSummaryInput);
@@ -276,6 +305,7 @@ export async function exerciseRuntime(): Promise<{
   );
   return {
     toolSelection,
+    modelRoute,
     riskGate,
     verdict: answers.length > 0 ? riskGate.verdictToApply : riskGateVerdict,
   };
@@ -364,9 +394,14 @@ export function jevProvider(): {
   };
 }
 
-export const traces: { step: AgentStepTrace; summary: RunSummaryTrace } = {
+export const traces: {
+  step: AgentStepTrace;
+  summary: RunSummaryTrace;
+  supportedVersions: ReadonlyArray<TraceSchemaVersion>;
+} = {
   step: agentStepTrace,
   summary: runSummaryTrace,
+  supportedVersions: supportedTraceSchemaVersions,
 };
 export const costs = {
   stepCostInUsd,

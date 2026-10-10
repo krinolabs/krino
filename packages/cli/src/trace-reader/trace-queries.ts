@@ -5,6 +5,8 @@
 // `traces [old]` would silently match nothing. Node reads the listed files and appends their
 // lines to `trace_lines`.
 
+import { SUPPORTED_TRACE_SCHEMA_VERSIONS } from "@krinolabs/krino";
+
 /** One row per non-blank line of every trace file. Filled with DuckDB's appender. */
 export const TRACE_LINES_TABLE = "trace_lines";
 
@@ -52,6 +54,11 @@ const TRACE_RECORD_STRUCTURE =
 
 const NUMBER_TYPES = "('UBIGINT', 'BIGINT', 'DOUBLE')";
 
+/** The trace schema versions this reader accepts, as a SQL list: `('1', '2')`. */
+const SUPPORTED_SCHEMA_VERSIONS = `(${SUPPORTED_TRACE_SCHEMA_VERSIONS.map(
+  (schemaVersion) => `'${schemaVersion}'`,
+).join(", ")})`;
+
 function tokenUsageIsComplete(fieldName: string): string {
   return `(record.${fieldName}.inputTokens IS NOT NULL
       AND record.${fieldName}.outputTokens IS NOT NULL
@@ -85,7 +92,7 @@ SELECT
     WHEN NOT is_json THEN 'invalidJson'
     WHEN field_types[1] IS DISTINCT FROM 'OBJECT' THEN 'invalidShape'
     WHEN field_types[2] IS DISTINCT FROM 'UBIGINT'
-      OR record.traceSchemaVersion IS DISTINCT FROM '1' THEN 'unsupportedSchemaVersion'
+      OR record.traceSchemaVersion NOT IN ${SUPPORTED_SCHEMA_VERSIONS} THEN 'unsupportedSchemaVersion'
     WHEN record.recordType = 'agentStep'
       AND field_types[3] = 'VARCHAR' AND field_types[4] = 'VARCHAR'
       AND field_types[5] = 'VARCHAR' AND field_types[6] = 'VARCHAR'

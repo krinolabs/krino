@@ -1,8 +1,9 @@
 import type { KrinoConfig } from "./config.js";
 import type { DecisionKind } from "./decisions.js";
-import type { PendingToolCall, StepContext } from "./host.js";
+import type { ModelRouteContext, PendingToolCall, StepContext } from "./host.js";
 import type {
   KrinoRuntime,
+  ModelRouteOutcome,
   RiskGateOutcome,
   RunHandle,
   RunStartOptions,
@@ -30,6 +31,7 @@ export type StartedStubRun = RunStartOptions & { runIdentifier: string };
 export type StubKrinoRuntime = KrinoRuntime & {
   readonly startedRuns: ReadonlyArray<StartedStubRun>;
   readonly toolSelectionRequests: ReadonlyArray<StepContext>;
+  readonly modelRouteRequests: ReadonlyArray<ModelRouteContext>;
   readonly riskGateRequests: ReadonlyArray<PendingToolCall>;
   readonly writtenTraces: ReadonlyArray<AgentStepTrace | RunSummaryTrace>;
   readonly flushTimeouts: ReadonlyArray<number>;
@@ -68,6 +70,7 @@ export function createStubKrino(
   const currentTime = stubOptions.currentTime ?? (() => new Date());
   const startedRuns: Array<StartedStubRun> = [];
   const toolSelectionRequests: Array<StepContext> = [];
+  const modelRouteRequests: Array<ModelRouteContext> = [];
   const riskGateRequests: Array<PendingToolCall> = [];
   const writtenTraces: Array<AgentStepTrace | RunSummaryTrace> = [];
   const flushTimeouts: Array<number> = [];
@@ -87,6 +90,20 @@ export function createStubKrino(
         decisionRecord: createStubDecisionRecord(
           "toolSelection",
           encodeToolNameChoice(toolNamesToSend),
+        ),
+      };
+    };
+
+    const decideModelRoute = async (
+      modelRouteContext: ModelRouteContext,
+    ): Promise<ModelRouteOutcome> => {
+      modelRouteRequests.push(modelRouteContext);
+      // Shadow: the host keeps its model.
+      return {
+        modelIdentifierToUse: modelRouteContext.hostModelIdentifier,
+        decisionRecord: createStubDecisionRecord(
+          "modelRouting",
+          modelRouteContext.hostModelIdentifier,
         ),
       };
     };
@@ -123,6 +140,8 @@ export function createStubKrino(
       runFinished = true;
       writtenTraces.push({
         ...runSummary,
+        routingCounterfactualCostInUsd: null,
+        runOutcome: runSummary.runOutcome ?? null,
         traceSchemaVersion: TRACE_SCHEMA_VERSION,
         recordType: "runSummary",
         projectName: krinoConfig.projectName,
@@ -130,7 +149,14 @@ export function createStubKrino(
       });
     };
 
-    return { runIdentifier, decideToolSelection, checkToolCallRisk, recordStep, finishRun };
+    return {
+      runIdentifier,
+      decideToolSelection,
+      decideModelRoute,
+      checkToolCallRisk,
+      recordStep,
+      finishRun,
+    };
   };
 
   const flushAll = async (timeoutInMilliseconds: number): Promise<void> => {
@@ -142,6 +168,7 @@ export function createStubKrino(
     flushAll,
     startedRuns,
     toolSelectionRequests,
+    modelRouteRequests,
     riskGateRequests,
     writtenTraces,
     flushTimeouts,

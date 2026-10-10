@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { KrinoConfig } from "../contracts/index.js";
 import { KRINO_CONFIG_DEFAULTS, KrinoConfigurationError } from "../contracts/index.js";
+import { createKrino } from "./create-krino.js";
 import { createRecordingTraceSink } from "./local-test-doubles.js";
 import { resolveKrinoConfig } from "./resolve-config.js";
 
@@ -115,6 +116,20 @@ describe("resolveKrinoConfig", () => {
         decisionModes: { toolSelection: undefined } as unknown as KrinoConfig["decisionModes"],
       }).decisionModes.toolSelection,
     ).toBe("shadow");
+  });
+
+  it("accepts the default mode of every decision kind, modelRouting included", () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(() =>
+        createKrino({
+          projectName: "demo",
+          decisionModes: { ...KRINO_CONFIG_DEFAULTS.decisionModes },
+        }),
+      ).not.toThrow();
+    } finally {
+      consoleWarn.mockRestore();
+    }
   });
 
   it("refuses to run the risk gate in enforce mode (it cannot fail open)", () => {

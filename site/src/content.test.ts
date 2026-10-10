@@ -69,7 +69,9 @@ describe("configuration page", () => {
   });
 
   it("documents shadow as the default mode for every decision", () => {
-    expect(Object.values(KRINO_CONFIG_DEFAULTS.decisionModes)).toEqual(["shadow", "shadow"]);
+    const defaultModes = Object.values(KRINO_CONFIG_DEFAULTS.decisionModes);
+    expect(defaultModes).toHaveLength(3);
+    expect(defaultModes.every((decisionMode) => decisionMode === "shadow")).toBe(true);
     expect(configurationText).toContain("| `decisionModes` | every decision `shadow` |");
   });
 });

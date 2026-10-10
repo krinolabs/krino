@@ -7,6 +7,8 @@ import type {
   DecisionQuestion,
   DecisionRecord,
   ModelPrice,
+  ModelRouteContext,
+  ModelRouteOutcome,
   PendingToolCall,
   RiskGateOutcome,
   RunHandle,
@@ -700,6 +702,9 @@ export function createManagedRun(runContext: RunContext): ManagedRun {
       toolSelectionAgreement:
         runSummary.toolSelectionAgreement ??
         agreementWithStepZeroSuggestion(runSummary.usedToolNames),
+      // TODO(WP-17): price the run at the suggested (shadow) or fallback (enforce) model.
+      routingCounterfactualCostInUsd: null,
+      runOutcome: runSummary.runOutcome ?? null,
       traceSchemaVersion: TRACE_SCHEMA_VERSION,
       recordType: "runSummary",
       projectName: resolvedConfig.projectName,
@@ -723,8 +728,28 @@ export function createManagedRun(runContext: RunContext): ManagedRun {
     return finishPromise;
   };
 
+  // TODO(WP-17): real model routing (ADR-023). Until then the host keeps its model and the
+  // returned record is not written to any step.
+  const decideModelRoute = async (
+    modelRouteContext: ModelRouteContext,
+  ): Promise<ModelRouteOutcome> => ({
+    modelIdentifierToUse: modelRouteContext.hostModelIdentifier,
+    decisionRecord: createDecisionRecord(
+      "modelRouting",
+      resolvedConfig.decisionModes.modelRouting,
+      { appliedChoice: modelRouteContext.hostModelIdentifier },
+    ),
+  });
+
   return {
-    runHandle: { runIdentifier, decideToolSelection, checkToolCallRisk, recordStep, finishRun },
+    runHandle: {
+      runIdentifier,
+      decideToolSelection,
+      decideModelRoute,
+      checkToolCallRisk,
+      recordStep,
+      finishRun,
+    },
     settlePendingDecisions,
   };
 }

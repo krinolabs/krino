@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { KrinoConfig } from "./config.js";
-import type { HostCapabilities, StepContext } from "./host.js";
+import type { HostCapabilities, ModelRouteContext, StepContext } from "./host.js";
 import type { RunStartOptions, RunSummaryInput, StepTraceInput } from "./runtime.js";
 import { createStubDecisionRecord, createStubKrino, encodeToolNameChoice } from "./stub-runtime.js";
 import { TRACE_SCHEMA_VERSION } from "./trace.js";
@@ -137,6 +137,52 @@ describe("createStubKrino", () => {
     });
   });
 
+  describe("decideModelRoute", () => {
+    function createModelRouteContext(runIdentifier: string): ModelRouteContext {
+      return {
+        stepContext: createStepContext(runIdentifier),
+        hostModelIdentifier: "anthropic/claude-sonnet-5-5",
+        availableCandidateIdentifiers: [
+          "anthropic/claude-sonnet-5-5",
+          "anthropic/claude-haiku-4-5",
+        ],
+        canApplyRoute: true,
+      };
+    }
+
+    it("keeps the host's model (shadow) and records the request", async () => {
+      const stubRuntime = createTestRuntime();
+      const runHandle = stubRuntime.startRun(runStart);
+      const modelRouteContext = createModelRouteContext(runHandle.runIdentifier);
+
+      const outcome = await runHandle.decideModelRoute(modelRouteContext);
+
+      expect(outcome.modelIdentifierToUse).toBe("anthropic/claude-sonnet-5-5");
+      expect(stubRuntime.modelRouteRequests).toEqual([modelRouteContext]);
+    });
+
+    it("records a shadow decision with no suggestion and the host's model applied", async () => {
+      const stubRuntime = createTestRuntime();
+      const runHandle = stubRuntime.startRun(runStart);
+
+      const outcome = await runHandle.decideModelRoute(
+        createModelRouteContext(runHandle.runIdentifier),
+      );
+
+      expect(outcome.decisionRecord).toEqual({
+        decisionKind: "modelRouting",
+        decisionMode: "shadow",
+        decisionStatus: "skippedUnsupported",
+        suggestedChoice: null,
+        appliedChoice: "anthropic/claude-sonnet-5-5",
+        probability: null,
+        decisionModelVersion: "stub",
+        latencyInMilliseconds: null,
+        decisionCostInUsd: null,
+      });
+    });
+  });
+
   describe("checkToolCallRisk", () => {
     it("applies no verdict (shadow) and suggests askHuman (fail closed)", async () => {
       const stubRuntime = createTestRuntime();
@@ -215,11 +261,27 @@ describe("createStubKrino", () => {
       expect(stubRuntime.writtenTraces).toEqual([
         {
           ...runSummaryInput,
+          routingCounterfactualCostInUsd: null,
+          runOutcome: null,
           traceSchemaVersion: TRACE_SCHEMA_VERSION,
           recordType: "runSummary",
           projectName: "stub-test-project",
           recordedAt: "2026-10-02T12:00:00.000Z",
         },
+      ]);
+    });
+
+    it("keeps the adapter's runOutcome and never fills a counterfactual cost", async () => {
+      const stubRuntime = createTestRuntime();
+      const runHandle = stubRuntime.startRun(runStart);
+
+      await runHandle.finishRun({
+        ...createRunSummaryInput(runHandle.runIdentifier),
+        runOutcome: "aborted",
+      });
+
+      expect(stubRuntime.writtenTraces).toEqual([
+        expect.objectContaining({ runOutcome: "aborted", routingCounterfactualCostInUsd: null }),
       ]);
     });
 

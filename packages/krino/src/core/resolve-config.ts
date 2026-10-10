@@ -23,7 +23,7 @@ export type ResolvedKrinoConfig = {
   randomSource: () => number;
 };
 
-const DECISION_KINDS: ReadonlyArray<DecisionKind> = ["toolSelection", "riskGate"];
+const DECISION_KINDS: ReadonlyArray<DecisionKind> = ["toolSelection", "riskGate", "modelRouting"];
 const DECISION_MODES: ReadonlyArray<string> = ["off", "shadow", "enforce"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
