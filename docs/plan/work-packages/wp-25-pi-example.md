@@ -11,11 +11,15 @@
   - The same log-triage agent as `examples/ai-sdk-cli` and `examples/claude-agent-sdk-cli`,
     embedded with the Pi SDK: `createAgentSession` with `SessionManager.inMemory()`, the
     log-triage tools registered as Pi tools (TypeBox schemas), and `createKrinoPiExtension` as
-    an inline extension factory.
+    an inline extension factory. Use the verified wiring from the WP-20 card: `reload()`, then
+    **`await session.bindExtensions({})`** (else `session_start` never fires), and
+    **`await krino.flushAll(…)` after `session.dispose()`** (dispose emits no
+    `session_shutdown`).
   - A routing policy with two candidates and a fallback, so the run shows a routing decision.
-  - **`--fake`**: no key, no network. A scripted Pi model (verify what Pi offers for tests,
-    for example a faux provider in `@earendil-works/pi-ai`; else register a scripted provider
-    with `pi.registerProvider`) plus krino's fake decision provider.
+  - **`--fake`**: no key, no network. Pi's own `fauxProvider` from `@earendil-works/pi-ai`
+    (verified to run with no network) plus krino's fake decision provider. Set
+    `PI_CODING_AGENT_DIR` to a temp folder, plus `PI_OFFLINE=1`, `PI_TELEMETRY=0`, and
+    `PI_SKIP_VERSION_CHECK=1`, so Pi never writes to `~/.pi` or calls home.
   - **Live** (behind `KRINO_LIVE=1`): the user's Pi credentials, the Pi classifier, and a real
     model.
   - Tasks and risk policy reused from the other examples where possible (import, don't copy).

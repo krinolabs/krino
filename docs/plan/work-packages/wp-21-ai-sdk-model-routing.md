@@ -19,9 +19,11 @@
   - At step 0, `decideModelRoute` with the step-0 context, `hostModelIdentifier` = the call's
     `model` (string, or the model's `provider/modelId`), all candidates available, and
     `canApplyRoute: true`.
-  - **Enforce:** return the routed model from `prepareStep` on **every** step (sticky), if
-    `prepareStep`'s `model` lasts one step only, like `activeTools` (verify, plan V7). Shadow and
-    off return no `model`.
+  - **Enforce:** return the routed model from `prepareStep` on **every** step (sticky). Verified
+    (V7) in `ai` 7.0.126: each step uses `prepareStepResult?.model ?? model`, and the outer
+    `model` is never reassigned, so a step-0-only override falls back on step 1, exactly like
+    `activeTools` (ADR-020). Strings are accepted (`resolveLanguageModel`). Shadow and off return
+    no `model`.
   - The caller's `prepareStep` runs first, as today. If it returns a `model`, it wins, and krino
     warns once per process that this can break the prompt cache (same pattern as ADR-020).
   - Capabilities add `'modelRouting'` to `supportedDecisions`.
@@ -36,9 +38,8 @@
   - [ ] Shadow returns no `model` and adds 0 ms.
   - [ ] Timeout, error, and low confidence route to the fallback.
   - [ ] Calls without the third argument behave exactly as before (existing tests unchanged).
-  - [ ] **Verify** plan V7 against the installed `ai` version and record it in the PR. If the
-        `model` override persists across steps, write a short ADR-020 addendum proposal in the
-        PR instead of the per-step return.
+  - [ ] Re-check V7 against the installed `ai` version (`generateText` and `streamText`) and
+        record the version in the PR.
 
 ---
 

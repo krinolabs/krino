@@ -27,16 +27,25 @@
       chosen option and its probability. `stopReason` `"error"` or `"aborted"` →
       `DecisionProviderError` or `DecisionTimeoutError`. `classify` never rejects, but guard
       anyway.
-    - Passes `requestOptions.abortSignal` as `signal` and enforces `timeoutInMilliseconds`.
-    - `decisionModelVersion` = `provider/model` from the result. Decision cost comes from the
-      result's `usage.cost.total` when present (through `onClassification`), else the price
-      table.
+    - Calls `classify(model, context, { signal, timeoutMs, maxRetries: 0 })`. Verified (V5):
+      `classify` has **no default timeout** and **`maxRetries` defaults to 2**, so a decision
+      could otherwise retry past its deadline. `timeoutMs` = `timeoutInMilliseconds`; `signal` =
+      `requestOptions.abortSignal`. A failure comes back as `stopReason` `"aborted"` (the signal
+      fired) or `"error"` with `errorMessage`, never as a rejection.
+    - `decisionModelVersion` = `provider/model` from the result. **Decision cost comes from
+      krino's price table**, using the result's token counts when present. Pi's catalog prices
+      `typesafe/jev-latest` at 0, so `usage.cost.total` is always 0 (verified). Make sure
+      `findModelPrice` maps `typesafe/jev-latest` to the Jev price entry. If that needs a new alias
+      in `pricing/` (WP-17's path), raise it in the PR.
     - Never logs or keeps the classifier state or credentials; errors keep only the name,
       message, and status (same rule as the Jev provider).
     - Exported only from `@krinolabs/krino/pi` (WP-20 re-exports it). The root entry never
       imports it.
-  - **Verify** (plan V5): the classifier id (`typesafe/jev-latest`), where its credentials come
-    from, and its typical latency. Write the result in the PR.
+  - **Already verified** (V5, [`../pi-verification-1.1.0.md`](../pi-verification-1.1.0.md)):
+    `typesafe/jev-latest` is in Pi's bundled catalog (type `classifier`, api
+    `typesafe-system-one`). Credentials come from Pi's auth store (`/login`) first, then
+    `TYPESAFE_API_KEY`. Choice answers carry `probabilities` and `confidence`. Still open: real
+    latency against the 800 ms timeout (verification day, needs a key).
 - **Acceptance:**
   - [ ] No network in tests: recorded `ClassifierResult` fixtures (answered, low confidence,
         error, aborted) and AI Gateway fixtures.
