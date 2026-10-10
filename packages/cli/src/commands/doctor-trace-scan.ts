@@ -1,4 +1,4 @@
-import { FAKE_DECISION_MODEL_VERSION, TRACE_SCHEMA_VERSION } from "@krinolabs/krino";
+import { FAKE_DECISION_MODEL_VERSION, SUPPORTED_TRACE_SCHEMA_VERSIONS } from "@krinolabs/krino";
 import type { CacheUsageRow, LineCounts } from "../trace-reader/read-trace-aggregates.js";
 
 // A small in-process line scanner for `krino doctor`. It applies the same line rules as WP-09's
@@ -209,7 +209,10 @@ export function classifyTraceLine(lineText: string): TraceLineResult {
   if (!isJsonObject(lineValue)) {
     return { lineClass: "invalidShape" };
   }
-  if (field(lineValue, "traceSchemaVersion") !== TRACE_SCHEMA_VERSION) {
+  const traceSchemaVersion = field(lineValue, "traceSchemaVersion");
+  if (
+    !SUPPORTED_TRACE_SCHEMA_VERSIONS.some((schemaVersion) => schemaVersion === traceSchemaVersion)
+  ) {
     return { lineClass: "unsupportedSchemaVersion" };
   }
   const traceRecord = scanRecord(lineValue);

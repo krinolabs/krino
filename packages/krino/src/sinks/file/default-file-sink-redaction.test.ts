@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HostCapabilities, KrinoConfig } from "../../contracts/index.js";
-import { DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS } from "../../contracts/index.js";
+import {
+  DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS,
+  TRACE_SCHEMA_VERSION,
+} from "../../contracts/index.js";
 import { answerEveryQuestion, createLocalTestProvider } from "../../core/local-test-doubles.js";
 import { createKrino } from "../../index.js";
 import { hashContent } from "../../redaction/index.js";
@@ -149,7 +152,7 @@ describe("redaction is on by default", () => {
   it("the search would find the raw text if it were written (control)", async () => {
     const traceSink = createFileTraceSink({ projectName: "redaction-test" });
     traceSink.writeRecord({
-      traceSchemaVersion: 1,
+      traceSchemaVersion: TRACE_SCHEMA_VERSION,
       recordType: "runSummary",
       projectName: "redaction-test",
       runIdentifier: "leaky-run",
@@ -161,6 +164,8 @@ describe("redaction is on by default", () => {
       stepCount: 0,
       usedToolNames: [],
       toolSelectionAgreement: null,
+      routingCounterfactualCostInUsd: null,
+      runOutcome: null,
       recordedAt: "2026-10-02T09:00:00.000Z",
     });
     await traceSink.flush(DEFAULT_FLUSH_TIMEOUT_IN_MILLISECONDS);

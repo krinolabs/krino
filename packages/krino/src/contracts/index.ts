@@ -1,7 +1,13 @@
 // The stub runtime is not re-exported here; adapters import it from './stub-runtime.js'
 // so it never reaches the public package entry point.
 
-export type { KrinoConfig, ModelPrice, RiskGatePolicy } from "./config.js";
+export type {
+  KrinoConfig,
+  ModelCandidate,
+  ModelPrice,
+  ModelRoutingPolicy,
+  RiskGatePolicy,
+} from "./config.js";
 export type {
   DecisionAnswer,
   DecisionKind,
@@ -23,6 +29,7 @@ export { DecisionProviderError, DecisionTimeoutError, KrinoConfigurationError } 
 export type {
   HostCapabilities,
   HostName,
+  ModelRouteContext,
   PendingToolCall,
   StepContext,
   ToolDescription,
@@ -32,6 +39,7 @@ export type { DecisionProvider, DecisionRequestOptions } from "./provider.js";
 export type {
   CreateKrino,
   KrinoRuntime,
+  ModelRouteOutcome,
   RiskGateOutcome,
   RiskGateVerdict,
   RunHandle,
@@ -44,7 +52,10 @@ export type { TraceSink } from "./sink.js";
 export {
   type AgentStepTrace,
   type DecisionRecord,
+  type RunOutcome,
   type RunSummaryTrace,
+  SUPPORTED_TRACE_SCHEMA_VERSIONS,
   type TokenUsageRecord,
   TRACE_SCHEMA_VERSION,
+  type TraceSchemaVersion,
 } from "./trace.js";

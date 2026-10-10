@@ -19,12 +19,17 @@ import type {
   KrinoConfig,
   KrinoConfigDefaults,
   KrinoRuntime,
+  ModelCandidate,
   ModelPrice,
+  ModelRouteContext,
+  ModelRouteOutcome,
+  ModelRoutingPolicy,
   PendingToolCall,
   RiskGateOutcome,
   RiskGatePolicy,
   RiskGateVerdict,
   RunHandle,
+  RunOutcome,
   RunStartOptions,
   RunSummaryInput,
   RunSummaryTrace,
@@ -34,6 +39,7 @@ import type {
   ToolDescription,
   ToolSelectionOutcome,
   ToolSelectionTiming,
+  TraceSchemaVersion,
   TraceSink,
 } from "./index.js";
 import {
@@ -46,13 +52,14 @@ import {
   DecisionTimeoutError,
   KRINO_CONFIG_DEFAULTS,
   KrinoConfigurationError,
+  SUPPORTED_TRACE_SCHEMA_VERSIONS,
   TRACE_SCHEMA_VERSION,
 } from "./index.js";
 import type { StartedStubRun, StubKrinoRuntime, StubRuntimeOptions } from "./stub-runtime.js";
 
 describe("decisions.ts types", () => {
-  it("DecisionKind is the v0.1 set", () => {
-    expectTypeOf<DecisionKind>().toEqualTypeOf<"toolSelection" | "riskGate">();
+  it("DecisionKind is the v0.2 set", () => {
+    expectTypeOf<DecisionKind>().toEqualTypeOf<"toolSelection" | "riskGate" | "modelRouting">();
   });
 
   it("DecisionMode", () => {
@@ -74,6 +81,7 @@ describe("decisions.ts types", () => {
       decisionKind: DecisionKind;
       questionText: string;
       options: Array<string> | null;
+      optionCriteria?: Array<string>;
     }>();
   });
 
@@ -109,7 +117,7 @@ describe("provider.ts types", () => {
 
 describe("host.ts types", () => {
   it("HostName", () => {
-    expectTypeOf<HostName>().toEqualTypeOf<"ai-sdk" | "claude-agent-sdk">();
+    expectTypeOf<HostName>().toEqualTypeOf<"ai-sdk" | "claude-agent-sdk" | "pi">();
   });
 
   it("ToolSelectionTiming", () => {
@@ -146,11 +154,29 @@ describe("host.ts types", () => {
       toolArguments: Record<string, unknown>;
     }>();
   });
+
+  it("ModelRouteContext", () => {
+    expectTypeOf<ModelRouteContext>().toEqualTypeOf<{
+      stepContext: StepContext;
+      hostModelIdentifier: string;
+      availableCandidateIdentifiers: Array<string>;
+      canApplyRoute: boolean;
+    }>();
+  });
 });
 
 describe("trace.ts types", () => {
-  it("TRACE_SCHEMA_VERSION is the literal 1", () => {
-    expectTypeOf(TRACE_SCHEMA_VERSION).toEqualTypeOf<1>();
+  it("TRACE_SCHEMA_VERSION is the literal 2", () => {
+    expectTypeOf(TRACE_SCHEMA_VERSION).toEqualTypeOf<2>();
+  });
+
+  it("TraceSchemaVersion is every version a reader accepts", () => {
+    expectTypeOf<TraceSchemaVersion>().toEqualTypeOf<1 | 2>();
+    expectTypeOf(SUPPORTED_TRACE_SCHEMA_VERSIONS).toEqualTypeOf<ReadonlyArray<1 | 2>>();
+  });
+
+  it("RunOutcome", () => {
+    expectTypeOf<RunOutcome>().toEqualTypeOf<"completed" | "aborted" | "error">();
   });
 
   it("TokenUsageRecord", () => {
@@ -178,7 +204,7 @@ describe("trace.ts types", () => {
 
   it("AgentStepTrace", () => {
     expectTypeOf<AgentStepTrace>().toEqualTypeOf<{
-      traceSchemaVersion: 1;
+      traceSchemaVersion: 2;
       recordType: "agentStep";
       projectName: string;
       runIdentifier: string;
@@ -199,7 +225,7 @@ describe("trace.ts types", () => {
 
   it("RunSummaryTrace", () => {
     expectTypeOf<RunSummaryTrace>().toEqualTypeOf<{
-      traceSchemaVersion: 1;
+      traceSchemaVersion: 2;
       recordType: "runSummary";
       projectName: string;
       runIdentifier: string;
@@ -211,6 +237,8 @@ describe("trace.ts types", () => {
       stepCount: number;
       usedToolNames: Array<string>;
       toolSelectionAgreement: boolean | null;
+      routingCounterfactualCostInUsd: number | null;
+      runOutcome: RunOutcome | null;
       recordedAt: string;
     }>();
   });
@@ -246,6 +274,7 @@ describe("config.ts types", () => {
       decisionTimeoutInMilliseconds?: number;
       explorationRate?: number;
       riskGatePolicy?: RiskGatePolicy;
+      modelRoutingPolicy?: ModelRoutingPolicy;
       decisionProvider?: DecisionProvider;
       traceSink?: TraceSink;
       redactContent?: boolean;
@@ -271,6 +300,17 @@ describe("config.ts types", () => {
     }>();
   });
 
+  it("ModelCandidate", () => {
+    expectTypeOf<ModelCandidate>().toEqualTypeOf<{ modelIdentifier: string; useWhen: string }>();
+  });
+
+  it("ModelRoutingPolicy", () => {
+    expectTypeOf<ModelRoutingPolicy>().toEqualTypeOf<{
+      candidateModels: Array<ModelCandidate>;
+      fallbackModelIdentifier: string;
+    }>();
+  });
+
   it("ModelPrice", () => {
     expectTypeOf<ModelPrice>().toEqualTypeOf<{
       modelIdentifier: string;
@@ -287,6 +327,13 @@ describe("runtime.ts types", () => {
   it("ToolSelectionOutcome", () => {
     expectTypeOf<ToolSelectionOutcome>().toEqualTypeOf<{
       toolNamesToSend: Array<string>;
+      decisionRecord: DecisionRecord;
+    }>();
+  });
+
+  it("ModelRouteOutcome", () => {
+    expectTypeOf<ModelRouteOutcome>().toEqualTypeOf<{
+      modelIdentifierToUse: string;
       decisionRecord: DecisionRecord;
     }>();
   });
@@ -308,6 +355,7 @@ describe("runtime.ts types", () => {
       hostName: HostName;
       hostSdkVersion: string;
       capabilities: HostCapabilities;
+      hostModelPrices?: Array<ModelPrice>;
     }>();
   });
 
@@ -319,18 +367,42 @@ describe("runtime.ts types", () => {
     expectTypeOf<StepTraceInput>().toHaveProperty("decisions");
   });
 
-  it("RunSummaryInput is RunSummaryTrace without runtime-filled fields", () => {
+  it("RunSummaryInput is RunSummaryTrace without runtime-filled fields, runOutcome optional", () => {
     expectTypeOf<RunSummaryInput>().toEqualTypeOf<
-      Omit<RunSummaryTrace, "traceSchemaVersion" | "recordType" | "projectName" | "recordedAt">
+      Omit<
+        RunSummaryTrace,
+        | "traceSchemaVersion"
+        | "recordType"
+        | "projectName"
+        | "recordedAt"
+        | "routingCounterfactualCostInUsd"
+        | "runOutcome"
+      > & { runOutcome?: RunOutcome | null }
     >();
     expectTypeOf<RunSummaryInput>().not.toHaveProperty("projectName");
+    expectTypeOf<RunSummaryInput>().not.toHaveProperty("routingCounterfactualCostInUsd");
     expectTypeOf<RunSummaryInput>().toHaveProperty("toolSelectionAgreement");
+  });
+
+  it("RunSummaryInput works without runOutcome (v0.1 adapters)", () => {
+    expectTypeOf<{
+      runIdentifier: string;
+      hostName: HostName;
+      hostSdkVersion: string;
+      modelIdentifier: string;
+      totalTokenUsage: TokenUsageRecord;
+      totalCostInUsd: number;
+      stepCount: number;
+      usedToolNames: Array<string>;
+      toolSelectionAgreement: boolean | null;
+    }>().toExtend<RunSummaryInput>();
   });
 
   it("RunHandle", () => {
     expectTypeOf<RunHandle>().toEqualTypeOf<{
       runIdentifier: string;
       decideToolSelection: (stepContext: StepContext) => Promise<ToolSelectionOutcome>;
+      decideModelRoute: (modelRouteContext: ModelRouteContext) => Promise<ModelRouteOutcome>;
       checkToolCallRisk: (pendingToolCall: PendingToolCall) => Promise<RiskGateOutcome>;
       recordStep: (stepTrace: StepTraceInput) => void;
       finishRun: (runSummary: RunSummaryInput) => Promise<void>;
@@ -385,6 +457,7 @@ describe("stub-runtime.ts types", () => {
       KrinoRuntime & {
         readonly startedRuns: ReadonlyArray<StartedStubRun>;
         readonly toolSelectionRequests: ReadonlyArray<StepContext>;
+        readonly modelRouteRequests: ReadonlyArray<ModelRouteContext>;
         readonly riskGateRequests: ReadonlyArray<PendingToolCall>;
         readonly writtenTraces: ReadonlyArray<AgentStepTrace | RunSummaryTrace>;
         readonly flushTimeouts: ReadonlyArray<number>;

@@ -71,6 +71,7 @@ export function buildKrinoConfigFile(configInput: KrinoConfigFileInput): KrinoCo
   const decisionModes: Record<DecisionKind, DecisionMode> = {
     toolSelection: "shadow",
     riskGate: "shadow",
+    modelRouting: "shadow",
   };
   return {
     description: KRINO_CONFIG_DESCRIPTION,
