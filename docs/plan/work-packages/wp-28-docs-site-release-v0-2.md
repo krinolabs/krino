@@ -17,7 +17,9 @@
     (`pi install npm:@krinolabs/pi`, `krino.config.json`, `npx krino report`); a short
     "Model routing" section (shadow first, `krino/auto` on Pi, `withKrino` options on the AI
     SDK); updated limitations (risk gate shadow-only on Pi; routing quality is measured by
-    proxy).
+    proxy; Ctrl+C in Pi's print mode skips shutdown and leaves `cutOff` records). Every Pi SDK
+    snippet uses the verified wiring: `session.bindExtensions({})`, and `krino.flushAll()` after
+    `dispose()`.
   - **Package READMEs:** `@krinolabs/krino` gains the `./pi` entry point, `loadKrinoConfig`,
     and `modelRoutingPolicy`; `@krinolabs/cli` gains the routing report section and the new
     `init`/`doctor` checks; `@krinolabs/pi` gets a final pass.

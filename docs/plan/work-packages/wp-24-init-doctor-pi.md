@@ -20,15 +20,18 @@
     - `--routing <fallback>,<model>[,<model>…]` writes a `modelRoutingPolicy` with those
       candidates (the first is the fallback) and placeholder `useWhen` lines, and prints a
       reminder to edit them. Without the flag, no policy is written (routing stays off).
-    - Prints `pi install npm:@krinolabs/pi` for CLI users and the SDK snippet
-      (`createKrinoPiExtension` in `DefaultResourceLoader`) for embedders.
+    - Prints `pi install npm:@krinolabs/pi` for CLI users, and for embedders the SDK snippet
+      from the WP-20 card: `createKrinoPiExtension` in `DefaultResourceLoader`,
+      `session.bindExtensions({})`, and `krino.flushAll()` after `dispose()`.
   - **`krino doctor`:**
     - Pi version inside the tested range (`>=1.1.0 <2`), from the project's
       `node_modules`, else from `pi --version` when `pi` is on `PATH` (time-limited).
     - `@krinolabs/pi` listed in `~/.pi/agent/settings.json` or `.pi/settings.json`
       `packages` (read as JSON; never print other settings).
-    - Classifier credentials: `TYPESAFE_API_KEY` set, or report "unknown: check `/login` in
-      Pi" (never read Pi's credential files; only check that the variable exists).
+    - Classifier credentials: Pi checks its auth store (`/login`) first, then `TYPESAFE_API_KEY`
+      (verified, V5). Doctor never reads Pi's credential files, so a missing variable is an
+      **info** line ("not in the environment; fine if you ran `/login` in Pi"), never a warning.
+      Only check that the variable exists.
     - Model routing: the policy validates; the fallback is one of the candidates; candidate
       prices are known to krino or will come from the Pi catalog at run time (info, not a
       warning).

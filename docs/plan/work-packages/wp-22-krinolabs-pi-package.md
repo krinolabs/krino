@@ -35,7 +35,10 @@
   - `README.md`: `pi install npm:@krinolabs/pi`, trying it once with `pi -e npm:@krinolabs/pi`,
     the config file, the classifier key, `krino/auto`, `/krino`, and `npx krino report`.
   - **Verify** (plan V9): install the packed tarball with `pi install ./krinolabs-pi-*.tgz` (or
-    a local path) in a scratch Pi setup; record warnings and the Pi version in the PR.
+    a local path) in a scratch Pi setup with `PI_CODING_AGENT_DIR` pointing at a temp folder (so
+    `~/.pi` is untouched). Record warnings and the Pi version in the PR. Also check V8 from the
+    compiled package: `VERSION` from `@earendil-works/pi-coding-agent` must resolve to the
+    running Pi's copy, not a physical copy under `node_modules`.
 - **Acceptance:**
   - [ ] Tests load the extension into a fake `ExtensionAPI` and cover: no config, valid config,
         invalid config, missing classifier, each provider name.

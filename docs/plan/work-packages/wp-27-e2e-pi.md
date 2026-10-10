@@ -13,9 +13,12 @@
     installs them into temp consumer projects, as WP-14 does for two.
   - **Pi SDK consumer:** installs the Pi SDK and the packed `@krinolabs/pi`, loads its
     extension through `DefaultResourceLoader` (`additionalExtensionPaths` pointing at the
-    installed package, verify the option), runs a fake session of two prompts, then runs
-    `krino report --json` and asserts on the `pi` host, the session tool lock, and the routing
-    section.
+    installed package; `resource-loader.d.ts` lists the options), calls `reload()` and
+    **`session.bindExtensions({})`**, and runs two prompts on Pi's `fauxProvider`. Pi's
+    `session.dispose()` emits no `session_shutdown`, so the consumer calls `flushAll` itself.
+    Then it runs `krino report --json` and asserts on the `pi` host, the session tool lock, and
+    the routing section. Pi environment: `PI_CODING_AGENT_DIR` in a temp folder, `PI_OFFLINE=1`,
+    `PI_TELEMETRY=0`.
   - **Routing on the AI SDK consumer:** the existing AI SDK consumer runs once with a routing
     policy in enforce mode and the fake provider; the report shows the routed model.
   - **Import rules** (extend `host-sdk-import-rules.ts`): the root entry imports no Pi package;

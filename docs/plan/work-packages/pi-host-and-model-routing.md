@@ -51,20 +51,31 @@ suggest building one with the `tool_call` event.
 | `pi.registerCommand()` | `/` commands | `/krino` status and `/krino unlock` |
 | Pi packages (`pi install npm:…`, `pi-package` keyword, `pi.extensions` manifest) | Distribution | `@krinolabs/pi` |
 
-Facts that shape the design:
+Facts that shape the design (verified by running Pi 1.1.0 on 2026-10-10; evidence in
+[`../pi-verification-1.1.0.md`](../pi-verification-1.1.0.md)):
 
-- **A `tool_call` handler that throws blocks the tool** ("as a fail-safe"). krino's handler must
-  never throw, or krino would block the user's tools.
-- **A `route()` that throws ends the request with an error.** krino's router must never throw; it
+- **A `tool_call` handler that throws blocks the tool**, skips later `tool_call` handlers, and
+  sends its message to the model as the tool result. krino's handler must never throw.
+- **A `route()` that throws ends that request with an error.** krino's router must never throw; it
   returns the fallback model instead.
-- **Tool changes are appended to the transcript** before the next request. "Providers that cannot
-  represent the transition receive a complete transcript checkpoint, which can invalidate the
-  cached prefix." So a tool change after the first request can still cost a cache miss. The
-  session lock avoids it; WP-26 measures it.
+- **Pi awaits every handler in order, with no timeout.** A slow `agent_settled` handler delays
+  `prompt()`. krino keeps provider calls and trace writes out of handlers, except the bounded
+  flush on `session_shutdown`.
+- **A tool change in the first run's `before_agent_start` is free.** Pi writes the session's
+  opening system message after those handlers, so the first request already carries only the
+  narrowed list. A later change adds a tool-removal message. Claude models flagged
+  `supportsMidConvoToolChanges` (the Claude 5 family and opus-4-8) keep the cache through it. Other
+  models and every OpenAI transport resend the tool list, which breaks the cache. The session lock
+  avoids both; WP-26 measures it live.
+- **A run is `before_agent_start` → `agent_settled`.** Steering and follow-ups add turns to the
+  same run without a new `before_agent_start`. An automatic retry starts a new `agent_start` and
+  resets `turnIndex`, so krino counts steps itself.
+- **SDK hosts must call `session.bindExtensions({})`,** or `session_start` never fires. And
+  `session.dispose()` emits no `session_shutdown`, so SDK users call `krino.flushAll()`.
 - **Switching models between turns loses the prompt cache** (Pi's virtual-model docs). Routing
   stays sticky inside a run.
-- **Pi already ships a Jev classifier.** Pi's own `jev-router.ts` example routes with it. krino's
-  Pi provider uses the same API.
+- **Pi already ships a Jev classifier** (`typesafe/jev-latest`). Its catalog price is 0, so krino
+  prices Jev decisions from its own table.
 - Pi needs Node **22.19** or later (its `engines` field). krino's Pi paths inherit that floor.
 
 ---
@@ -84,7 +95,7 @@ Facts that shape the design:
 | D29 | **`loadKrinoConfig()`** in `@krinolabs/krino` reads and validates `krino.config.json`. The decision provider is named in JSON; the caller builds it | Pi package users cannot write code; the CLI and the runtime share one schema (backlog item) | Env vars and flags only |
 | D30 | **Host-bound decision provider:** `createPiClassifierProvider()` wraps a structural `classify` client taken from `ctx.modelRegistry`. It is exported only from `@krinolabs/krino/pi` | Uses the user's Pi credentials; no `ai` dependency; priced from the classifier's own `usage` | Only Jev through AI Gateway (second key, second bill) |
 | D31 | **Trace schema version 2:** additive fields only; readers accept 1 and 2 | New run-summary fields for routing; old traces stay readable | Silent shape change under version 1 |
-| D32 | **Price precedence:** user `priceOverrides` → host prices (Pi catalog, passed per run) → `DEFAULT_MODEL_PRICES` | Pi routes across 15+ providers that krino's table does not list | krino's table only (no prices for most Pi models) |
+| D32 | **Price precedence:** user `priceOverrides` → host prices (Pi catalog, passed per run) → `DEFAULT_MODEL_PRICES`. A host price with input and output both 0 counts as unknown | Pi routes across 15+ providers that krino's table does not list; Pi's catalog lists some paid models (the Jev classifier) at 0 | krino's table only (no prices for most Pi models) |
 
 Each decision gets an ADR in WP-16: ADR-021 (Pi host, D21–D24), ADR-022 (third package, D28),
 ADR-023 (model routing, D25–D27), ADR-024 (config loader, D29), ADR-025 (host-bound provider,
@@ -191,6 +202,11 @@ review, 2026-10-10.)
   first run. Enforce never adds a tool that was not active. `/krino unlock` restores the full
   set (user action, recorded in the session).
 - **Pi: the risk gate is shadow-only.** The `tool_call` handler never returns `block`.
+- **Pi: handlers are awaited in order with no timeout.** krino never awaits provider calls or
+  trace writes inside Pi handlers, except the bounded `flushAll` in `session_shutdown` and the
+  enforce waits that the decision timeout already bounds.
+- **Pi: step numbers come from krino's own per-run counter,** not Pi's `turnIndex`, which resets
+  on automatic retries.
 
 ---
 
@@ -272,22 +288,25 @@ flowchart LR
 
 ## 7. 🔍 Verify before building
 
-These came from the docs, not from running code. The WP that owns each one checks it against
-the installed version and writes the result in its PR.
+A verification check ran Pi 1.1.0 with its faux provider on 2026-10-10: no network and no keys.
+The full report, with file:line evidence, is in
+[`../pi-verification-1.1.0.md`](../pi-verification-1.1.0.md). Open items stay with their WP.
 
-| # | Question | Owner |
-|---|---|---|
-| V1 | Does `setActiveTools()` inside `before_agent_start` apply to the **first** request of that run, or only to the next one? Is `systemPromptOptions.selectedTools` the right lever instead (or both)? | WP-20 |
-| V2 | Does `before_agent_start` fire for steering and follow-up messages, or once per `agent_settled` cycle? Is `turnIndex` 0-based and per run? Do automatic retries emit their own `turn_end` and assistant `message_end`? | WP-20 |
-| V3 | Exact option names to add an inline extension in the SDK (`DefaultResourceLoader({ extensionFactories })`, `resourceLoader.reload()`, and whether `session.bindExtensions()` is needed for `session_start`) | WP-20 |
-| V4 | How to check that a model has credentials from an extension (for `availableCandidateIdentifiers`) | WP-20 |
-| V5 | Classifier id and credentials: is `typesafe/jev-latest` stable? Does it read `TYPESAFE_API_KEY`, Pi's auth store, or both? Typical latency against the 800 ms timeout | WP-19 |
-| V6 | Does a tool-list change after the first request break the prompt cache through Pi on Anthropic and OpenAI models (Pi's "transcript checkpoint")? | WP-26 (live) |
-| V7 | In `ai` 7.0.126, does `prepareStep`'s `model` last one step only, like `activeTools` (ADR-020)? | WP-21 |
-| V8 | How to read the installed Pi version at runtime (an exported `VERSION`, or `package.json`) | WP-20 |
-| V9 | Does `pi install npm:@krinolabs/pi` warn about `@krinolabs/krino`'s optional peers (`ai`, `@anthropic-ai/claude-agent-sdk`)? | WP-22 |
-| V10 | Does Pi's `usage.cost.total` match the provider dashboard within a few percent (cache writes included)? | WP-28 (verification day) |
-| V11 | Does Pi await async `session_shutdown` handlers before the process exits (print and JSON modes too)? If not, how much of `flushAll` survives? | WP-20 |
+| # | Question | Result (Pi 1.1.0, `ai` 7.0.126) | Owner |
+|---|---|---|---|
+| V1 | Does `setActiveTools()` in `before_agent_start` apply to the first request? | ✅ Yes. `selectedTools` edits work too, and an edit wins over `setActiveTools()`. Both change the declarations sent, and the active set persists for later prompts. | WP-20 |
+| V2 | Steering, follow-ups, `turnIndex`, retries | ✅ Steering and follow-ups don't fire `before_agent_start`; they add turns to the run, and `route()` sees `reason: "user"`. `turnIndex` is 0-based and resets on every `agent_start`. A retry emits an error `message_end`, `turn_end` and `agent_end`, then a new `agent_start` in the same run. | WP-20 |
+| V3 | SDK wiring for an inline extension | ✅ `DefaultResourceLoader({ extensionFactories: [{ name, factory }] })` → `await reload()` → `createAgentSession` → **`await session.bindExtensions({})`** (required for `session_start`). | WP-20 |
+| V4 | Checking a model's credentials | ✅ `ctx.modelRegistry.hasConfiguredAuth(model)`, the same check Pi applies to a route. | WP-20 |
+| V5 | Classifier id, credentials, latency | ✅ `typesafe/jev-latest` is bundled, at catalog cost 0. Credentials: Pi's auth store (`/login`), then `TYPESAFE_API_KEY`. No default timeout; `maxRetries` defaults to 2. ⏳ Real latency (needs a key). | WP-19, verification day |
+| V6 | Does a later tool change break the cache? | ◐ From the code: flagged Claude models (the Claude 5 family and opus-4-8) keep the cache; other models and every OpenAI transport break it when a tool is removed. ⏳ Live check. | WP-26 (live) |
+| V7 | Does `prepareStep`'s `model` last one step? | ✅ Yes, it applies per step only, like `activeTools`. Return it on every step. | WP-21 |
+| V8 | Reading the Pi version | ✅ `import { VERSION } from "@earendil-works/pi-coding-agent"`, which resolves to the running Pi's copy inside the CLI. ⏳ Check from a compiled package in `node_modules`. | WP-20, WP-22 |
+| V9 | Does `pi install` warn about optional peers? | ⏳ Needs the real `pi` CLI. | WP-22 |
+| V10 | Does Pi's `usage.cost.total` match the provider dashboard? | ⏳ Needs live keys. | WP-28 (verification day) |
+| V11 | Is `session_shutdown` awaited before exit? | ✅ In every CLI mode and on session switches. ❌ Not by SDK `session.dispose()`, and not on Ctrl+C in print mode (cut-off records expected). | WP-20 |
+| V12 | Does `pi.sendUserMessage()` from another extension fire `before_agent_start`? | ⏳ Not tested. | WP-20 |
+| V13 | Does a resumed file-backed session restore the narrowed active tools? | ⏳ Not tested. The rebuilt lock must not change tools again (that would add a removal message). | WP-20 |
 
 ---
 

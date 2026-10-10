@@ -22,11 +22,15 @@
     fallback model) vs. `routing-enforce` (krino routes, `explorationRate: 0`). Results show
     cost per task, success rate (the bench's existing scoring), and steps per task for each
     setup.
-  - **`--fake`** for Pi: a scripted Pi model that follows the same cache rule as the AI SDK mock
-    (same tool list → cache read; changed list → cache write) and labels the output
-    `SIMULATED — not real measurements.` Fake routing uses a scripted fake provider.
+  - **`--fake`** for Pi: Pi's `fauxProvider` (`@earendil-works/pi-ai`), scripted to follow the
+    same cache rule as the AI SDK mock (same tool list → cache read; changed list → cache write),
+    with output labeled `SIMULATED — not real measurements.` Fake routing uses a scripted fake
+    provider.
   - **Live** (behind `KRINO_LIVE=1` and the existing spend guard): measures plan V6, the real
-    cache effect of a tool change through Pi on one Anthropic and one OpenAI model.
+    cache effect of a later tool change through Pi. Run it on three models. One Claude model
+    flagged `supportsMidConvoToolChanges` (for example `claude-sonnet-5-5`), which the code
+    reading says keeps the cache. One unflagged Claude model (`claude-haiku-4-5`) and one OpenAI
+    model, which the code reading says lose it when a tool is removed.
   - Update `bench-runner/README.md`: the new hosts, setups, and how to read routing results
     (cost and success rate together, never cost alone).
 - **Acceptance:**
