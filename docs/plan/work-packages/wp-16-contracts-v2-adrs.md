@@ -1,12 +1,13 @@
 # WP-16 · Contracts v2 + ADRs
 
-> **Branch:** `wp-16-contracts-v2-adrs`  |  **Status:** ☐ not started
+> **Branch:** `wp-16-contracts-v2-adrs`  |  **Status:** ✅ merged ([PR #23](https://github.com/krinolabs/krino/pull/23))
 > **Read first:** [`AGENTS.md`](../../../AGENTS.md), [`03-contracts.md`](../shared/03-contracts.md), [`04-behavior-rules.md`](../shared/04-behavior-rules.md), [the v0.2 plan](./pi-host-and-model-routing.md) (sections 3–5)
 > **Before you open a PR:** [`05-review-checklist.md`](../shared/05-review-checklist.md)
 
 - **Owner role:** lead (or Claude Code with lead review). This is the only v0.2 WP that may
   edit `packages/krino/src/contracts/**`.
-- **Depends on:** v0.1.0 released.
+- **Depends on:** v0.1.0 released. *Changed by lead decision (2026-10-10): WP-16 merged before
+  v0.1.0, so the v2 contracts ship in 0.1.0.*
 - **Owns:** `packages/krino/src/contracts/**`, `docs/adr/ADR-021-*.md` to `docs/adr/ADR-026-*.md`,
   `docs/plan/shared/01-scope.md`, `docs/plan/shared/03-contracts.md`,
   `docs/plan/shared/04-behavior-rules.md`, and the dependency fields of
